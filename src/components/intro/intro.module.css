@@ -1,0 +1,320 @@
+/*
+ * Intro prologue, two phases:
+ *   1. Logo phase — fixed overlay, plays once on page load via a GSAP
+ *      timeline (not scroll-linked). Logo grows 0 -> half-size while the
+ *      radial lines converge in; then the whole layer rises away.
+ *   2. Story phase — a normal-flow section pinned by GSAP ScrollTrigger.
+ *      A single scrubbed timeline drives story-line reveals, the two
+ *      accent semicircles, their glow, and the final split reveal.
+ */
+
+/* ---------------- shared background (both phases) ---------------- */
+
+.bgLayer {
+  position: absolute;
+  inset: 0;
+  background: #030303;
+  overflow: hidden;
+}
+
+.linesSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 4%, #000 15% 62%, transparent 80%);
+  mask-image: radial-gradient(circle at 50% 50%, transparent 0 4%, #000 15% 62%, transparent 80%);
+}
+
+/* Logo-phase lines: no outer fade — they should read all the way to the
+   viewport edges, only masked out at the very center where the logo sits. */
+.edgeLinesSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 4%, #000 10% 100%);
+  mask-image: radial-gradient(circle at 50% 50%, transparent 0 4%, #000 10% 100%);
+}
+
+.baseLine {
+  stroke: rgba(255, 255, 255, 0.035);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.growLine {
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  /* Grows in from the edge toward the center by animating the x2/y2
+     endpoint attributes directly (see IntroStory.tsx) — always renders as
+     one solid, unbroken line regardless of viewBox aspect ratio. */
+}
+
+.comet {
+  stroke: rgba(255, 255, 255, 0.38);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 5 195;
+  stroke-linecap: round;
+}
+
+.bgCircle {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.03);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.55) 100%);
+  pointer-events: none;
+}
+
+/* ---------------- phase 1: logo overlay ---------------- */
+
+.logoPhase {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  overflow: hidden;
+}
+
+.logoBox {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(64px, 6.5vw, 92px);
+  transform: translate(-50%, -50%) scale(0);
+  color: #fff;
+  opacity: 0;
+}
+
+/* ---------------- phase 2: pinned story stage ---------------- */
+
+.wrap {
+  position: relative;
+  z-index: 10;
+}
+
+.stage {
+  position: relative;
+  height: 100svh;
+  overflow: hidden;
+}
+
+.half {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.halfTop {
+  clip-path: inset(0 0 50% 0);
+}
+
+.halfBottom {
+  clip-path: inset(50% 0 0 0);
+}
+
+/* ---- story lines ---- */
+
+.story {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.04em;
+  text-align: center;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: clamp(15px, 2.7vw, 40px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #fff;
+  pointer-events: none;
+  padding: 0 24px;
+  z-index: 4;
+  will-change: transform, opacity;
+}
+
+.story > span {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: center;
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+
+.storyWord {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+.l2 {
+  color: #98958d;
+}
+
+.l2accent {
+  color: var(--color-accent);
+}
+
+/* ---- accent arc: shallow, full-width horizon curve with layered glow ----
+ * Centering uses xPercent/yPercent (set via GSAP on mount) rather than a
+ * CSS `transform: translate(...)`, because GSAP's `x`/`y` tweens below
+ * overwrite the element's full `transform` — a CSS-authored translate()
+ * would get clobbered the instant the first tween runs. */
+
+.arcTop,
+.arcBottom {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(88vw, 1400px);
+  will-change: transform;
+  pointer-events: none;
+}
+
+.arcSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.arcCore {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.arcGlowInner {
+  fill: none;
+  stroke-width: 10;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+.arcGlow {
+  fill: none;
+  stroke-width: 34;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+.arcBloom {
+  fill: none;
+  stroke-width: 90;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+/* ---- persistent bottom-center caption (present under every story) ---- */
+
+.caption {
+  position: absolute;
+  left: 50%;
+  bottom: 9%;
+  transform: translateX(-50%);
+  width: min(560px, 78vw);
+  text-align: center;
+  font-family: var(--font-copy);
+  font-weight: 500;
+  font-size: clamp(12px, 1vw, 14px);
+  line-height: 1.55;
+  letter-spacing: 0.005em;
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* ---- scroll cue (bottom-right, subtle looping nudge) ---- */
+
+.scrollCue {
+  position: absolute;
+  right: clamp(20px, 3vw, 48px);
+  bottom: clamp(20px, 3vw, 40px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 6;
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.scrollCueLabel {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #fff;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.scrollCueTrack {
+  width: 1px;
+  height: 34px;
+  background: rgba(255, 255, 255, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.scrollCueDot {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -100%);
+  animation: scrollCueDrop 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes scrollCueDrop {
+  0% {
+    transform: translate(-50%, -100%);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, 130%);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .story {
+    font-size: clamp(14px, 4.4vw, 24px);
+  }
+  .caption {
+    bottom: 7%;
+    font-size: 11px;
+  }
+  .scrollCue {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scrollCueDot {
+    animation: none;
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}

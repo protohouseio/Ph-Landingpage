@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+/*
+ * Single source of truth for design tokens as CSS custom properties.
+ * Mirrors src/config/design-tokens.ts — keep both in sync.
+ * Change --color-accent (or any value below) to re-skin the entire site.
+ */
+:root {
+  --color-accent: #ff5b44;
+  --color-accent-alt: #ff3d2e;
+  --color-accent-soft: #ff8a5c;
+  --color-accent-lime: #e8ff44;
+
+  --color-bg: #000000;
+  --color-bg-page: #fafaf8;
+  --color-bg-ink: #0a0a0a;
+
+  --color-text: #ffffff;
+  --color-text-secondary: #cfcfcf;
+  --color-text-muted: #8a877d;
+  --color-text-on-light: #0a0a0a;
+  --color-text-on-light-secondary: #5a5852;
+  --color-text-on-light-muted: #3a3833;
+
+  --color-divider: #2a2a2a;
+  --color-divider-light: #e6e3da;
+  --color-hover-gray: #1a1a1a;
+
+  --color-glass-bg: rgba(255, 255, 255, 0.07);
+  --color-glass-border: rgba(255, 255, 255, 0.14);
+
+  --font-heading: var(--font-plus-jakarta-sans), "Plus Jakarta Sans", sans-serif;
+  --font-copy: var(--font-manrope), "Manrope", sans-serif;
+
+  --radius-pill: 999px;
+  --radius-card: 28px;
+  --radius-glass: 16px;
+  --radius-button: 11px;
+
+  --ease-out: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-hover: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-exit: cubic-bezier(0.55, 0, 0.55, 0.2);
+
+  --pad-desktop: 80px;
+  --pad-tablet: 48px;
+  --pad-mobile: 24px;
+}
+
+@theme inline {
+  --color-accent: var(--color-accent);
+  --color-accent-alt: var(--color-accent-alt);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-accent-lime: var(--color-accent-lime);
+
+  --color-bg: var(--color-bg);
+  --color-bg-page: var(--color-bg-page);
+  --color-bg-ink: var(--color-bg-ink);
+
+  --color-text: var(--color-text);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-on-light: var(--color-text-on-light);
+  --color-text-on-light-secondary: var(--color-text-on-light-secondary);
+  --color-text-on-light-muted: var(--color-text-on-light-muted);
+
+  --color-divider: var(--color-divider);
+  --color-divider-light: var(--color-divider-light);
+  --color-hover-gray: var(--color-hover-gray);
+
+  --font-sans: var(--font-copy);
+  --font-heading: var(--font-heading);
+
+  --radius-pill: var(--radius-pill);
+  --radius-card: var(--radius-card);
+  --radius-glass: var(--radius-glass);
+  --radius-button: var(--radius-button);
+}
+
+body {
+  margin: 0;
+  /* Black so the intro's split-screen gap reveals darkness, not page cream.
+     Sections paint their own light backgrounds on top. */
+  background: var(--color-bg);
+  color: var(--color-text-on-light);
+  font-family: var(--font-copy);
+}
+
+/* iOS-style fixed progressive-blur dock along the bottom of the viewport —
+   content scrolling up "develops" out of the blur. */
+.glass-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: clamp(84px, 12svh, 150px);
+  z-index: 100;
+  pointer-events: none;
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  mask-image: linear-gradient(to top, #000 0%, #000 22%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, #000 0%, #000 22%, transparent 100%);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
