@@ -1,0 +1,61 @@
+/*
+ * Light-background, scroll-pinned paragraph reveal — sits between the
+ * intro (which zooms outward into this section's bg color) and Hero.
+ * All motion is GSAP + ScrollTrigger (scrub), matching the rest of the
+ * site — no CSS transitions/keyframes drive the reveal itself.
+ */
+
+.wrap {
+  position: relative;
+  background: var(--story-bg, #fafaf8);
+}
+
+.stage {
+  height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0 clamp(24px, 8vw, 160px);
+}
+
+.paragraph {
+  max-width: 1180px;
+  margin: 0 auto;
+  text-align: center;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: clamp(22px, 3.4vw, 52px);
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+}
+
+.word {
+  display: inline-block;
+  color: #d8d5cc;
+  white-space: pre;
+}
+
+/* Starting state matches .word's unrevealed gray/transparent look — GSAP
+   (see StoryReveal.tsx) fades in the accent background + white text as
+   scroll reaches this token, same as every other word's color ramp, so
+   chips never pop in ahead of the reveal. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  color: #d8d5cc;
+  background: rgba(255, 91, 68, 0);
+  border-radius: 8px;
+  padding: 0.02em 0.22em;
+  margin: 0 0.04em;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .paragraph {
+    font-size: clamp(18px, 6vw, 28px);
+  }
+  .stage {
+    padding: 0 20px;
+  }
+}

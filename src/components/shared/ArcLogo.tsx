@@ -2,6 +2,9 @@
  * Arc-cluster logo mark, recreated 1:1 from the reference site's inline SVG
  * (o-scs.com). NOTE: this is that company's trademark — swap in the real
  * Proto House mark before production. Geometry kept exact per request.
+ *
+ * Shared between the intro (logo load-in) and the Hero nav so both use the
+ * identical mark from a single source.
  */
 export default function ArcLogo({ className }: { className?: string }) {
   return (

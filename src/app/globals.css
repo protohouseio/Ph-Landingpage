@@ -83,6 +83,11 @@ body {
   background: var(--color-bg);
   color: var(--color-text-on-light);
   font-family: var(--font-copy);
+  /* Defensive backstop: the intro's zoom-out finale scales .stage up to
+     9x via a CSS transform, which doesn't affect ancestor layout/scroll
+     width on its own — .wrap clips it locally, but this catches any
+     transform-driven overflow that leaks past a single wrapper. */
+  overflow-x: hidden;
 }
 
 /* iOS-style fixed progressive-blur dock along the bottom of the viewport —

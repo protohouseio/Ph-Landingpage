@@ -98,12 +98,41 @@
 .wrap {
   position: relative;
   z-index: 10;
+  overflow: hidden;
+}
+
+/* Solid color layer sitting behind .stage — revealed as .stage scales up
+   and fades during the zoom-out finale (see IntroStory.tsx's `master`
+   timeline). Starts invisible; crossfades to visible right as the zoom
+   begins, so what's uncovered is the story-reveal section's light
+   background, not page-black. */
+.zoomBg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  visibility: hidden;
 }
 
 .stage {
   position: relative;
+  z-index: 2;
   height: 100svh;
   overflow: hidden;
+}
+
+/* Everything the stage actually shows lives in here, not directly in
+   .stage — .stage is the ScrollTrigger `pin` target, and pin already
+   drives its own transform to hold it fixed in the viewport during the
+   pinned range. Applying the zoom-out `scale` tween (see IntroStory.tsx)
+   to this separate inner layer instead of .stage itself keeps pin's
+   transform and the zoom's transform from fighting over the same
+   element, which otherwise sends ScrollTrigger's internal measurements
+   into a refresh feedback loop (reproduced: scrolling into the zoom
+   froze the page entirely). */
+.zoomLayer {
+  position: absolute;
+  inset: 0;
 }
 
 .half {

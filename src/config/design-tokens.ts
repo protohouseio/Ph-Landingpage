@@ -116,19 +116,38 @@ export const tokens = {
     },
   },
 
+  hero: {
+    headline: "Idea, Build, Launch",
+    videoLabel: "Start Your MVP",
+    videoCtaLabel: "Book your free scoping call",
+  },
+
   intro: {
     // Total scroll length of the pinned intro, in viewport-heights.
     heightVh: 640,
     story: [
-      { line1: "You have an awesome idea", line2: "but don't know how to build it?" },
-      { line1: "Already tried vibe coding it but", line2: "ended up with something broken?" },
+      { line1: "You have an awesome idea?", line2: "Don't know how to build it?" },
+      { line1: "Already tried vibe coding it..", line2: "ended up with something broken?" },
       { line1: "No problem! We'll build it", line2: "market-ready together in 21 days." },
-      { line1: "New Launch,", line2: "Waiting Ahead." },
+      { line1: "New Launch!!", line2: "Waiting Ahead.." },
     ],
     // Persistent bottom-center caption, visible under every story screen
     // throughout the whole intro (not its own screen).
     caption:
-      "Taking the new founders with world changing ideas into the real market, treating their ideas as our own ideas.",
+      "Taking the new founders with world changing ideas into the real market while treating their products our own products.",
+  },
+
+  // Light-background scroll-reveal section between the intro and Hero.
+  // The intro zooms outward into this section's bg color (storyReveal.bg).
+  // `paragraph` is rendered word-by-word (color ramps gray -> ink as each
+  // word scrolls into focus); any word matching an entry in `highlights`
+  // (case-insensitive substring match against the rendered word) gets an
+  // accent-colored pill background + white text instead of the ramp.
+  storyReveal: {
+    bg: "#FAFAF8",
+    paragraph:
+      "We at ProtoHouse builds your idea into real, working software in 21 days, So you can put it in front of real users instead of spending $80,000 and six months finding out if anyone wants it. You own 100% of the code. Starting at $4,999.",
+    highlights: ["21 days", "$80,000", "six months", "$4,999"],
   },
 
   media: {

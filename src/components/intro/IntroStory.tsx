@@ -4,8 +4,22 @@ import { useLayoutEffect, useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { tokens } from "@/config/design-tokens";
-import ArcLogo from "./ArcLogo";
+import ArcLogo from "@/components/shared/ArcLogo";
 import styles from "./intro.module.css";
+
+export type IntroStoryProps = {
+  /** Called at the exact moment the logo overlay begins fading out — the
+   * global SiteNav reveals itself right at this point, before story 1 even
+   * shows, per the site-wide-fixed-header requirement. */
+  onLogoFadeStart?: () => void;
+  /** Continuously reports how far scroll has progressed through a short
+   * window approaching story 1 ("the second story"), as 0..1 — SiteNav
+   * scrubs its full-width-bar-to-pill collapse directly off this value
+   * every frame, so the motion tracks scroll position itself (glides
+   * open/closed in lockstep with the scrollbar) rather than firing a
+   * fixed-duration tween at a single threshold. */
+  onSecondStory?: (progress: number) => void;
+};
 
 gsap.registerPlugin(useGSAP);
 
@@ -175,7 +189,7 @@ const AccentArc = ({
   );
 };
 
-export default function IntroStory() {
+export default function IntroStory({ onLogoFadeStart, onSecondStory }: IntroStoryProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const logoPhaseRef = useRef<HTMLDivElement>(null);
   const logoBoxRef = useRef<HTMLDivElement>(null);
@@ -184,8 +198,24 @@ export default function IntroStory() {
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  // Inner wrapper that actually gets scaled for the zoom-out finale.
+  // Deliberately NOT the same element as stageRef: stageRef is the
+  // ScrollTrigger `pin` target, and pin already drives that element's
+  // own transform to hold it fixed in the viewport. Scaling stageRef
+  // directly fights that — ScrollTrigger measures the pinned element's
+  // bounding box on every scroll/refresh, and a simultaneously-changing
+  // scale transform on the same element makes each measurement come back
+  // different, triggering another internal refresh in a feedback loop
+  // (reproduced: scrolling hard into the zoom froze the page and capped
+  // scroll position). Scaling this separate inner layer instead leaves
+  // stageRef's own transform untouched, so pin's math stays stable.
+  const zoomLayerRef = useRef<HTMLDivElement>(null);
   const halfTopRef = useRef<HTMLDivElement>(null);
   const halfBottomRef = useRef<HTMLDivElement>(null);
+  // Solid color layer beneath .stage — fades in to storyReveal.bg during
+  // the zoom-out finale, so as .stage scales up and fades away it reveals
+  // this light color rather than dropping to page-black underneath.
+  const zoomBgRef = useRef<HTMLDivElement>(null);
   // Story text is rendered twice (once inside each half, clipped to that
   // half) so it travels naturally with its half during the split — index
   // [i][0] = top-half copy, [i][1] = bottom-half copy.
@@ -275,6 +305,30 @@ export default function IntroStory() {
       // the individual tweens below are added with fractional durations.
       master.to({}, { duration: TIMELINE_DURATION }, 0);
 
+      // Fires as real scroll approaches story 1's reveal window (see
+      // storyWindows below — index 1's `in` is 0.38) so SiteNav can
+      // collapse into its centered pill, not on any arbitrary scroll and
+      // not as an instant on/off snap. Remapped into a wide ramp window
+      // (spans a real, perceptible chunk of scroll — not a couple of
+      // frames) so SiteNav can scrub the collapse continuously off real
+      // scroll position: it visibly glides shut as the window is
+      // crossed and glides back open in reverse, tracking the scrollbar
+      // itself rather than firing a fixed-duration tween at one point.
+      // A separate ScrollTrigger on the same pinned trigger element,
+      // rather than piggybacking on the master timeline, so it can't
+      // perturb the master's own scrub/pin math.
+      const collapseRampStart = 0.28;
+      const collapseRampEnd = 0.42;
+      ScrollTrigger.create({
+        trigger: wrapRef.current,
+        start: "top top",
+        end: "bottom bottom",
+        onUpdate: (self) => {
+          const raw = (self.progress - collapseRampStart) / (collapseRampEnd - collapseRampStart);
+          onSecondStory?.(gsap.utils.clamp(0, 1, raw));
+        },
+      });
+
       // Comet pulses travel the radial lines throughout the whole story phase.
       master.to([...cometsTop, ...cometsBottom], { strokeDashoffset: -400, ease: "none" }, 0);
 
@@ -327,10 +381,26 @@ export default function IntroStory() {
         }
       });
 
-      // Final split: top half (line 1 + top arc) rises, bottom half (line 2
-      // + bottom arc) falls, revealing the hero beneath.
-      master.to(halfTopRef.current, { y: () => -0.5 * vh(), ease: "power2.inOut", duration: 0.15 }, 0.9);
-      master.to(halfBottomRef.current, { y: () => 0.5 * vh(), ease: "power2.inOut", duration: 0.15 }, 0.9);
+      // Final transition: the whole stage zooms outward (scales up hugely
+      // while fading), reading as flying forward through the screen,
+      // rather than the screen splitting into two halves. The solid
+      // zoomBg layer crossfades in underneath at the same time so what's
+      // revealed as .stage fades away is the story-reveal section's light
+      // background color, not page-black. Ends exactly at progress 1 —
+      // the pinned timeline's own max — so the pin releases the instant
+      // the zoom finishes. The next section lives in normal document flow
+      // right after the intro's pin spacer, so as soon as the pin lets
+      // go, ordinary scroll continuity carries straight into it with no
+      // dead frame: nothing to reveal mid-pin, because there's no gap
+      // between "zoom finished" and "normal scrolling resumes."
+      const zoomStart = 0.84;
+      const zoomDuration = 0.16;
+      master.to(
+        zoomLayerRef.current,
+        { scale: 9, autoAlpha: 0, ease: "power1.in", duration: zoomDuration, transformOrigin: "50% 50%" },
+        zoomStart
+      );
+      master.to(zoomBgRef.current, { autoAlpha: 1, ease: "power1.in", duration: zoomDuration * 0.85 }, zoomStart + zoomDuration * 0.15);
 
       // ---------------- Phase 1: logo load-in (autoplay) ----------------
       // Plays once on load. Story 1's entrance is "played" by animating
@@ -351,6 +421,7 @@ export default function IntroStory() {
         st.scroll(st.start + (st.end - st.start) * storyOneRevealProgress);
         ScrollTrigger.refresh();
         releaseScroll();
+        onLogoFadeStart?.();
       } else {
         const growLines = growLineEls.current.filter(Boolean) as SVGLineElement[];
         const progressDriver = { p: 0 };
@@ -360,7 +431,7 @@ export default function IntroStory() {
           .to(logoBoxRef.current, { opacity: 1, scale: 1, duration: 1.1, ease: "power2.out" })
           .to(growLines, { attr: { x2: 50, y2: 50 }, duration: 1.2, stagger: 0.03, ease: "power2.out" }, "<")
           .to({}, { duration: 0.25 })
-          .to(logoPhaseRef.current, { autoAlpha: 0, duration: 0.6, ease: "power2.inOut" })
+          .to(logoPhaseRef.current, { autoAlpha: 0, duration: 0.6, ease: "power2.inOut", onStart: () => onLogoFadeStart?.() })
           .set(logoPhaseRef.current, { display: "none" })
           .to(progressDriver, {
             p: storyOneRevealProgress,
@@ -415,88 +486,96 @@ export default function IntroStory() {
 
       {/* ---- Phase 2: pinned, scroll-driven story ---- */}
       <div className={styles.wrap} ref={wrapRef} style={{ height: `${tokens.intro.heightVh}vh` }}>
+        <div
+          className={styles.zoomBg}
+          ref={zoomBgRef}
+          style={{ background: tokens.storyReveal.bg }}
+          aria-hidden="true"
+        />
         <div className={styles.stage} ref={stageRef}>
-          {/* Top half: carries the background field, top arc, and
-              story-line-1 text (word-revealed). Rises away on split. */}
-          <div className={`${styles.half} ${styles.halfTop}`} ref={halfTopRef}>
-            <div className={styles.bgLayer}>
-              <RadialField lineClassName={styles.baseLine} />
-              <RadialField
-                lineClassName={styles.comet}
-                lineRefs={(el, i) => {
-                  cometTopRefs.current[i] = el;
-                }}
-              />
-              <div className={styles.vignette} />
-            </div>
-            <div className={styles.arcTop} ref={arcTopWrapRef}>
-              <AccentArc
-                id="arcGradTop"
-                gradFrom="var(--color-accent-alt)"
-                gradTo="var(--color-accent-soft)"
-                flip
-                innerRef={(el) => {
-                  arcInnerRefs.current[0] = el;
-                }}
-                glowRef={(el) => {
-                  arcGlowRefs.current[0] = el;
-                }}
-                bloomRef={(el) => {
-                  arcBloomRefs.current[0] = el;
-                }}
-              />
-            </div>
-            {STORIES.map((s, i) => (
-              <div key={i} className={styles.story} ref={setStoryRef(i, 0)}>
-                <span>{i === 0 ? renderWords(s.line1, i, 0) : s.line1}</span>
-                <span className={i === STORIES.length - 1 ? styles.l2accent : styles.l2}>
-                  {i === 0 ? renderWords(s.line2, i, 0) : s.line2}
-                </span>
+          <div className={styles.zoomLayer} ref={zoomLayerRef}>
+            {/* Top half: carries the background field, top arc, and
+                story-line-1 text (word-revealed). Rises away on split. */}
+            <div className={`${styles.half} ${styles.halfTop}`} ref={halfTopRef}>
+              <div className={styles.bgLayer}>
+                <RadialField lineClassName={styles.baseLine} />
+                <RadialField
+                  lineClassName={styles.comet}
+                  lineRefs={(el, i) => {
+                    cometTopRefs.current[i] = el;
+                  }}
+                />
+                <div className={styles.vignette} />
               </div>
-            ))}
-          </div>
+              <div className={styles.arcTop} ref={arcTopWrapRef}>
+                <AccentArc
+                  id="arcGradTop"
+                  gradFrom="var(--color-accent-alt)"
+                  gradTo="var(--color-accent-soft)"
+                  flip
+                  innerRef={(el) => {
+                    arcInnerRefs.current[0] = el;
+                  }}
+                  glowRef={(el) => {
+                    arcGlowRefs.current[0] = el;
+                  }}
+                  bloomRef={(el) => {
+                    arcBloomRefs.current[0] = el;
+                  }}
+                />
+              </div>
+              {STORIES.map((s, i) => (
+                <div key={i} className={styles.story} ref={setStoryRef(i, 0)}>
+                  <span>{i === 0 ? renderWords(s.line1, i, 0) : s.line1}</span>
+                  <span className={i === STORIES.length - 1 ? styles.l2accent : styles.l2}>
+                    {i === 0 ? renderWords(s.line2, i, 0) : s.line2}
+                  </span>
+                </div>
+              ))}
+            </div>
 
-          {/* Bottom half: mirrors the top — falls away on split. */}
-          <div className={`${styles.half} ${styles.halfBottom}`} ref={halfBottomRef}>
-            <div className={styles.bgLayer}>
-              <RadialField lineClassName={styles.baseLine} />
-              <RadialField
-                lineClassName={styles.comet}
-                lineRefs={(el, i) => {
-                  cometBottomRefs.current[i] = el;
-                }}
-              />
-              <div className={styles.vignette} />
-            </div>
-            <div className={styles.arcBottom} ref={arcBottomWrapRef}>
-              <AccentArc
-                id="arcGradBot"
-                gradFrom="var(--color-accent)"
-                gradTo="var(--color-accent-soft)"
-                innerRef={(el) => {
-                  arcInnerRefs.current[1] = el;
-                }}
-                glowRef={(el) => {
-                  arcGlowRefs.current[1] = el;
-                }}
-                bloomRef={(el) => {
-                  arcBloomRefs.current[1] = el;
-                }}
-              />
-            </div>
-            {STORIES.map((s, i) => (
-              <div key={i} className={styles.story} ref={setStoryRef(i, 1)}>
-                <span>{i === 0 ? renderWords(s.line1, i, 1) : s.line1}</span>
-                <span className={i === STORIES.length - 1 ? styles.l2accent : styles.l2}>
-                  {i === 0 ? renderWords(s.line2, i, 1) : s.line2}
-                </span>
+            {/* Bottom half: mirrors the top — falls away on split. */}
+            <div className={`${styles.half} ${styles.halfBottom}`} ref={halfBottomRef}>
+              <div className={styles.bgLayer}>
+                <RadialField lineClassName={styles.baseLine} />
+                <RadialField
+                  lineClassName={styles.comet}
+                  lineRefs={(el, i) => {
+                    cometBottomRefs.current[i] = el;
+                  }}
+                />
+                <div className={styles.vignette} />
               </div>
-            ))}
-            <p className={styles.caption}>{CAPTION}</p>
-            <div className={styles.scrollCue} aria-hidden="true">
-              <span className={styles.scrollCueLabel}>Scroll</span>
-              <div className={styles.scrollCueTrack}>
-                <span className={styles.scrollCueDot} />
+              <div className={styles.arcBottom} ref={arcBottomWrapRef}>
+                <AccentArc
+                  id="arcGradBot"
+                  gradFrom="var(--color-accent)"
+                  gradTo="var(--color-accent-soft)"
+                  innerRef={(el) => {
+                    arcInnerRefs.current[1] = el;
+                  }}
+                  glowRef={(el) => {
+                    arcGlowRefs.current[1] = el;
+                  }}
+                  bloomRef={(el) => {
+                    arcBloomRefs.current[1] = el;
+                  }}
+                />
+              </div>
+              {STORIES.map((s, i) => (
+                <div key={i} className={styles.story} ref={setStoryRef(i, 1)}>
+                  <span>{i === 0 ? renderWords(s.line1, i, 1) : s.line1}</span>
+                  <span className={i === STORIES.length - 1 ? styles.l2accent : styles.l2}>
+                    {i === 0 ? renderWords(s.line2, i, 1) : s.line2}
+                  </span>
+                </div>
+              ))}
+              <p className={styles.caption}>{CAPTION}</p>
+              <div className={styles.scrollCue} aria-hidden="true">
+                <span className={styles.scrollCueLabel}>Scroll</span>
+                <div className={styles.scrollCueTrack}>
+                  <span className={styles.scrollCueDot} />
+                </div>
               </div>
             </div>
           </div>
