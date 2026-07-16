@@ -151,9 +151,9 @@ const AccentArc = ({
   gradFrom: string;
   gradTo: string;
   flip?: boolean;
-  innerRef: React.Ref<SVGPathElement>;
-  glowRef: React.Ref<SVGPathElement>;
-  bloomRef: React.Ref<SVGPathElement>;
+  innerRef: React.Ref<SVGSVGElement>;
+  glowRef: React.Ref<SVGSVGElement>;
+  bloomRef: React.Ref<SVGSVGElement>;
 }) => {
   // Half-circle. `flip` (top arc): diameter along the bottom edge (y=500),
   // bowing up to the pole at y=0 — so its flat edge sits at the wrapper's
@@ -161,31 +161,50 @@ const AccentArc = ({
   // the top edge (y=0), bowing down to y=500 — flat edge at the wrapper's
   // top, same center line, endpoints coincide with the top arc's exactly.
   const d = flip ? "M0,500 A500,500 0 0 1 1000,500" : "M0,0 A500,500 0 0 0 1000,0";
+
+  // The glow layers are separate stacked <svg> elements with CSS
+  // `filter: blur()` on the element, NOT feGaussianBlur inside one SVG:
+  // SVG filters are re-rasterized on the CPU every time the filtered
+  // path's opacity tween updates (continuously, across the whole story
+  // phase — measured as 100-400ms frame spikes). With CSS blur on an
+  // element whose *content* never changes, the browser caches the
+  // blurred texture once and the opacity tweens (now targeting the svg
+  // elements themselves) become compositor-only updates.
+  const grad = (layerId: string) => (
+    <defs>
+      <linearGradient id={layerId} x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" style={{ stopColor: gradFrom, stopOpacity: 0 }} />
+        <stop offset="0.15" style={{ stopColor: gradFrom }} />
+        <stop offset="0.5" style={{ stopColor: gradTo }} />
+        <stop offset="0.85" style={{ stopColor: gradFrom }} />
+        <stop offset="1" style={{ stopColor: gradFrom, stopOpacity: 0 }} />
+      </linearGradient>
+    </defs>
+  );
+
+  const layers: Array<{ ref?: React.Ref<SVGSVGElement>; svgClass: string; pathClass: string; key: string }> = [
+    { ref: bloomRef, svgClass: styles.arcBloom, pathClass: styles.arcStrokeBloom, key: "bloom" },
+    { ref: glowRef, svgClass: styles.arcGlow, pathClass: styles.arcStrokeGlow, key: "glow" },
+    { ref: innerRef, svgClass: styles.arcGlowInner, pathClass: styles.arcStrokeInner, key: "inner" },
+    { svgClass: styles.arcCoreLayer, pathClass: styles.arcStrokeCore, key: "core" },
+  ];
+
   return (
-    <svg className={styles.arcSvg} viewBox="0 0 1000 500" preserveAspectRatio="none" aria-hidden="true">
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" style={{ stopColor: gradFrom, stopOpacity: 0 }} />
-          <stop offset="0.15" style={{ stopColor: gradFrom }} />
-          <stop offset="0.5" style={{ stopColor: gradTo }} />
-          <stop offset="0.85" style={{ stopColor: gradFrom }} />
-          <stop offset="1" style={{ stopColor: gradFrom, stopOpacity: 0 }} />
-        </linearGradient>
-        <filter id={`${id}-blurA`} x="-20%" y="-40%" width="140%" height="180%">
-          <feGaussianBlur stdDeviation="6" />
-        </filter>
-        <filter id={`${id}-blurB`} x="-20%" y="-60%" width="140%" height="220%">
-          <feGaussianBlur stdDeviation="16" />
-        </filter>
-        <filter id={`${id}-blurC`} x="-20%" y="-80%" width="140%" height="260%">
-          <feGaussianBlur stdDeviation="34" />
-        </filter>
-      </defs>
-      <path ref={bloomRef} className={styles.arcBloom} d={d} stroke={`url(#${id})`} filter={`url(#${id}-blurC)`} vectorEffect="non-scaling-stroke" />
-      <path ref={glowRef} className={styles.arcGlow} d={d} stroke={`url(#${id})`} filter={`url(#${id}-blurB)`} vectorEffect="non-scaling-stroke" />
-      <path ref={innerRef} className={styles.arcGlowInner} d={d} stroke={`url(#${id})`} filter={`url(#${id}-blurA)`} vectorEffect="non-scaling-stroke" />
-      <path className={styles.arcCore} d={d} stroke={`url(#${id})`} vectorEffect="non-scaling-stroke" />
-    </svg>
+    <div className={styles.arcStack}>
+      {layers.map((layer) => (
+        <svg
+          key={layer.key}
+          ref={layer.ref}
+          className={`${styles.arcLayer} ${layer.svgClass}`}
+          viewBox="0 0 1000 500"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          {grad(`${id}-${layer.key}`)}
+          <path className={layer.pathClass} d={d} stroke={`url(#${id}-${layer.key})`} vectorEffect="non-scaling-stroke" />
+        </svg>
+      ))}
+    </div>
   );
 };
 
@@ -226,9 +245,9 @@ export default function IntroStory({ onLogoFadeStart, onSecondStory }: IntroStor
   const arcBottomWrapRef = useRef<HTMLDivElement>(null);
   const cometTopRefs = useRef<Array<SVGLineElement | null>>([]);
   const cometBottomRefs = useRef<Array<SVGLineElement | null>>([]);
-  const arcInnerRefs = useRef<Array<SVGPathElement | null>>([]);
-  const arcGlowRefs = useRef<Array<SVGPathElement | null>>([]);
-  const arcBloomRefs = useRef<Array<SVGPathElement | null>>([]);
+  const arcInnerRefs = useRef<Array<SVGSVGElement | null>>([]);
+  const arcGlowRefs = useRef<Array<SVGSVGElement | null>>([]);
+  const arcBloomRefs = useRef<Array<SVGSVGElement | null>>([]);
   // storyWordRefs[i][half] = flat array of every word <span> across both
   // lines of that story's copy in that half (order of appearance in DOM).
   const storyWordRefs = useRef<Array<Array<HTMLSpanElement[]>>>(
@@ -395,12 +414,24 @@ export default function IntroStory({ onLogoFadeStart, onSecondStory }: IntroStor
       // between "zoom finished" and "normal scrolling resumes."
       const zoomStart = 0.84;
       const zoomDuration = 0.16;
+      // Scale is capped at 4 (not higher) and the alpha fade is
+      // front-loaded to finish HALFWAY through the zoom, deliberately:
+      // this layer contains 6 feGaussianBlur SVG filters + 48 lines, and
+      // the browser re-rasterizes all of it at the current scale every
+      // frame. At 9x scale with alpha still > 0 that rasterization cost
+      // froze the page outright when scrolling backward across this
+      // boundary (reverse re-enters at max scale). With alpha reaching 0
+      // (visibility:hidden via autoAlpha) by the zoom's midpoint, the
+      // expensive high-scale half is never painted in either direction.
       master.to(
         zoomLayerRef.current,
-        { scale: 9, autoAlpha: 0, ease: "power1.in", duration: zoomDuration, transformOrigin: "50% 50%" },
+        { scale: 4, ease: "power1.in", duration: zoomDuration, transformOrigin: "50% 50%" },
         zoomStart
       );
-      master.to(zoomBgRef.current, { autoAlpha: 1, ease: "power1.in", duration: zoomDuration * 0.85 }, zoomStart + zoomDuration * 0.15);
+      master.to(zoomLayerRef.current, { autoAlpha: 0, ease: "power1.in", duration: zoomDuration * 0.5 }, zoomStart);
+      // Light bg must be fully in before the stage finishes fading, or a
+      // black frame flashes between them.
+      master.to(zoomBgRef.current, { autoAlpha: 1, ease: "power1.out", duration: zoomDuration * 0.4 }, zoomStart + zoomDuration * 0.05);
 
       // ---------------- Phase 1: logo load-in (autoplay) ----------------
       // Plays once on load. Story 1's entrance is "played" by animating

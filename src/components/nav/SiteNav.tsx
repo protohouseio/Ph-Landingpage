@@ -67,6 +67,7 @@ const SiteNav = forwardRef<SiteNavHandle, SiteNavProps>(function SiteNav({ light
   const [menuOpen, setMenuOpen] = useState(false);
   const [tone, setTone] = useState<"light" | "dark">("dark");
   const collapseTlRef = useRef<gsap.core.Timeline | null>(null);
+  const lastProgressRef = useRef(-1);
 
   useImperativeHandle(ref, () => ({
     reveal: () => {
@@ -78,6 +79,13 @@ const SiteNav = forwardRef<SiteNavHandle, SiteNavProps>(function SiteNav({ light
       });
     },
     setProgress: (progress: number) => {
+      // Called on EVERY scroll update across the whole intro range, but
+      // the value only actually changes inside the collapse ramp window
+      // (clamped to 0 or 1 elsewhere). Re-seeking the collapse timeline
+      // re-applies its backdrop-filter tween — an expensive style — so
+      // no-op calls are skipped outright.
+      if (Math.abs(progress - lastProgressRef.current) < 0.001) return;
+      lastProgressRef.current = progress;
       rootRef.current?.classList.toggle(styles.collapsed, progress > 0.5);
       collapseTlRef.current?.progress(progress);
     },
@@ -155,8 +163,13 @@ const SiteNav = forwardRef<SiteNavHandle, SiteNavProps>(function SiteNav({ light
   const navLabel = tokens.content.navCta.label;
 
   return (
-    <div ref={rootRef} className={styles.root} style={{ opacity: 0, visibility: "hidden" }} data-tone={tone}>
-      <div className={`${styles.bar} ${menuOpen ? styles.menuOpen : ""}`} ref={barRef}>
+    <div
+      ref={rootRef}
+      className={`${styles.root} ${menuOpen ? styles.menuOpen : ""}`}
+      style={{ opacity: 0, visibility: "hidden" }}
+      data-tone={tone}
+    >
+      <div className={styles.bar} ref={barRef}>
         <a className={styles.logo} href="#" aria-label="Proto House home">
           <ArcLogo className={styles.logoMark} />
         </a>

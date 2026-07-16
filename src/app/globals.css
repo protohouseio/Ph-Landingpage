@@ -76,6 +76,18 @@
   --radius-button: var(--radius-button);
 }
 
+/* Horizontal clipping on BOTH html and body: body-only overflow-x is
+   unreliable on mobile browsers (the visual viewport can still pan
+   sideways past transform-driven overflow like the intro's zoom-out
+   scale). `clip` is preferred over `hidden` where supported because it
+   clips without creating a scroll container, so it can't interfere with
+   Lenis or sticky/fixed positioning; `hidden` is the fallback. */
+html,
+body {
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   /* Black so the intro's split-screen gap reveals darkness, not page cream.
@@ -83,11 +95,6 @@ body {
   background: var(--color-bg);
   color: var(--color-text-on-light);
   font-family: var(--font-copy);
-  /* Defensive backstop: the intro's zoom-out finale scales .stage up to
-     9x via a CSS transform, which doesn't affect ancestor layout/scroll
-     width on its own — .wrap clips it locally, but this catches any
-     transform-driven overflow that leaks past a single wrapper. */
-  overflow-x: hidden;
 }
 
 /* iOS-style fixed progressive-blur dock along the bottom of the viewport —
