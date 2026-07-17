@@ -1,0 +1,214 @@
+/*
+ * Marquee strips + VSL video section, directly after StoryReveal.
+ *
+ * Cover transition: margin-top pulls this section up over the last
+ * 100svh of StoryReveal's wrapper — the exact scroll span StoryReveal's
+ * timeline spends in its motionless "hold" (see the hold tween in
+ * StoryReveal.tsx). The frozen pinned stage stays visible in the
+ * background while this section slides up from the bottom of the screen
+ * and covers it, upward shadow leading. The two numbers must stay in
+ * sync: change one, change the other.
+ */
+
+.section {
+  position: relative;
+  /* Above StoryReveal's transformed (pinned) stage so this section —
+     and the shadow it casts — paint over it during the cover. */
+  z-index: 1;
+  margin-top: -100svh;
+  background: var(--vsl-bg, #fafaf8);
+  box-shadow: 0 -36px 80px -12px rgba(10, 10, 10, 0.35);
+}
+
+/* ---- Marquee strips ---------------------------------------------- */
+
+/* Two full-bleed strips stacked flush — no gap between them, flush to
+   the section's top edge. */
+.strips {
+  display: flex;
+  flex-direction: column;
+}
+
+.strip {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.stripAccent {
+  background: var(--color-accent);
+}
+
+.stripInk {
+  background: var(--color-bg-ink);
+}
+
+/* The GSAP-translated element. min-width:max-content so the repeated
+   copies define its width and the xPercent drift never exposes a bare
+   strip edge. */
+.track {
+  display: inline-flex;
+  align-items: center;
+  min-width: max-content;
+  will-change: transform;
+}
+
+.copy {
+  display: inline-flex;
+  align-items: center;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(16px, 1.9vw, 26px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.62em 0;
+}
+
+.item > span {
+  padding: 0 0.65em;
+}
+
+.sep {
+  font-weight: 700;
+  padding: 0 0.1em;
+}
+
+.stripAccent .textInk,
+.stripAccent .sep {
+  color: #0a0a0a;
+}
+
+.stripInk .textWhite {
+  color: #ffffff;
+}
+
+.stripInk .textAccent,
+.stripInk .sep {
+  color: var(--color-accent);
+}
+
+/* ---- VSL video ---------------------------------------------------- */
+
+.videoWrap {
+  display: flex;
+  justify-content: center;
+  padding: clamp(56px, 8vw, 104px) 0 clamp(64px, 9vw, 128px);
+}
+
+.videoFrame {
+  position: relative;
+  width: 90%;
+  cursor: pointer;
+}
+
+.video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 28px;
+  background: #000;
+  box-shadow: 0 40px 90px -30px rgba(10, 10, 10, 0.45);
+}
+
+/* Center play/pause control. Resting ("ambient" muted-loop) and paused
+   states keep it fully visible; while unmuted playback is running it
+   gets .playBtnIdle and only fades back in on hover (see below). */
+.playBtn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: clamp(64px, 7vw, 92px);
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 18px 44px -12px rgba(10, 10, 10, 0.55);
+  transition:
+    opacity 0.35s ease,
+    scale 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.35s ease;
+}
+
+.playBtn svg {
+  width: 38%;
+  height: 38%;
+}
+
+/* Expanding ring on hover — starts hugging the button, swells outward
+   and fades. */
+.playBtn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent);
+  opacity: 0;
+  scale: 1;
+  pointer-events: none;
+  transition:
+    scale 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.5s ease;
+}
+
+.videoFrame:hover .playBtn {
+  scale: 1.08;
+  background: var(--color-accent-alt);
+}
+
+.videoFrame:hover .playBtn::after {
+  scale: 1.45;
+  opacity: 0.6;
+}
+
+.playBtn:active {
+  scale: 0.96;
+}
+
+/* Unmuted playback in progress: control hidden until the cursor is over
+   the video, then it returns as the pause button. */
+.playBtnIdle {
+  opacity: 0;
+}
+
+.videoFrame:hover .playBtnIdle {
+  opacity: 1;
+}
+
+/* Touch screens have no hover: keep the hidden-while-playing behavior
+   (the whole frame is the tap target for pausing instead). */
+@media (hover: none) {
+  .videoFrame:hover .playBtnIdle {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  /* The desktop cover transition (and the 100svh hold it pairs with in
+     StoryReveal) doesn't exist on mobile — normal flow, no overlap. */
+  .section {
+    margin-top: 0;
+  }
+
+  .item {
+    font-size: 14px;
+  }
+
+  .video {
+    border-radius: 16px;
+  }
+
+  .videoWrap {
+    padding: 40px 0 56px;
+  }
+}

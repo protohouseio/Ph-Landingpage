@@ -139,15 +139,49 @@ export const tokens = {
 
   // Light-background scroll-reveal section between the intro and Hero.
   // The intro zooms outward into this section's bg color (storyReveal.bg).
-  // `paragraph` is rendered word-by-word (color ramps gray -> ink as each
-  // word scrolls into focus); any word matching an entry in `highlights`
+  // `eyebrow` is the small label above the paragraph. `paragraph` is
+  // rendered word-by-word (color ramps gray -> ink as each word scrolls
+  // into focus); any word matching an entry in `highlights`
   // (case-insensitive substring match against the rendered word) gets an
-  // accent-colored pill background + white text instead of the ramp.
+  // accent-colored pill background + white text instead of the ramp —
+  // kept in sync with the actual wording in `paragraph` below.
   storyReveal: {
     bg: "#FAFAF8",
+    eyebrow: "We Are ProtoHouse",
     paragraph:
-      "We at ProtoHouse builds your idea into real, working software in 21 days, So you can put it in front of real users instead of spending $80,000 and six months finding out if anyone wants it. You own 100% of the code. Starting at $4,999.",
-    highlights: ["21 days", "$80,000", "six months", "$4,999"],
+      "We help founders validate ideas with real, working software instead of spending months and six figures on assumptions. Starting at $4,999.",
+    highlights: ["six figures", "$4,999"],
+  },
+
+  // Placeholder quotes — swap for real customer testimonials before launch.
+  // Rendered as glassmorphism cards beside storyReveal's paragraph; reveal
+  // one by one as the user scrolls through that same pinned section.
+  testimonials: [
+    {
+      quote: "ProtoHouse took our idea from a napkin sketch to a working product investors could click through in under a month.",
+      name: "Placeholder Name",
+      role: "Founder, Placeholder Co.",
+    },
+    {
+      quote: "We'd spent six figures with two other shops and had nothing to show for it. ProtoHouse shipped a real MVP in three weeks.",
+      name: "Placeholder Name",
+      role: "Co-Founder, Placeholder Co.",
+    },
+    {
+      quote: "No fluff, no bloated roadmap — just the product we needed to get in front of users and raise our seed round.",
+      name: "Placeholder Name",
+      role: "Founder, Placeholder Co.",
+    },
+  ],
+
+  // Marquee-strip + VSL section right after storyReveal. Both strip
+  // phrase lists are placeholder copy — swap freely. stripTop renders
+  // black text on the accent strip; stripBottom renders on the ink strip
+  // with phrases alternating white / accent in list order.
+  vsl: {
+    bg: "#FAFAF8",
+    stripTop: ["Build Fast", "Launch Faster", "Validate For Real", "Own Your Code"],
+    stripBottom: ["MVP in 21 Days", "Real Working Software", "No Bloated Roadmaps", "Starting at $4,999"],
   },
 
   media: {
@@ -157,7 +191,7 @@ export const tokens = {
       "https://videos.pexels.com/video-files/7122113/7122113-uhd_2560_1440_30fps.mp4",
     vslVideoUrl:
       process.env.NEXT_PUBLIC_VSL_VIDEO_URL ??
-      "https://redstone.agency/video/video-banner.webm",
+      "https://media.istockphoto.com/id/2177620306/video/live-streaming-night-and-microphone-with-face-of-man-for-influencer-social-media-or-content.mp4?s=mp4-640x640-is&k=20&c=rjcE9cSCh3dR22sI5Xz0G2Wkk8LKzK55eTR5rS959Zg=",
     tintStrength: 0.5,
     grain: true,
   },

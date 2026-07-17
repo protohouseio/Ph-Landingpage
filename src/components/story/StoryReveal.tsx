@@ -4,9 +4,11 @@ import { useMemo, useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import { gsap } from "@/lib/gsap";
 import { tokens } from "@/config/design-tokens";
+import CtaButton from "@/components/shared/CtaButton";
 import styles from "./storyreveal.module.css";
 
-const { paragraph, highlights, bg } = tokens.storyReveal;
+const { eyebrow, paragraph, highlights, bg } = tokens.storyReveal;
+const { testimonials } = tokens;
 
 type Token = { text: string; isChip: boolean };
 type TokenRef = { el: HTMLSpanElement; kind: "word" | "chip"; index: number };
@@ -14,7 +16,7 @@ type TokenRef = { el: HTMLSpanElement; kind: "word" | "chip"; index: number };
 /**
  * Splits the paragraph into whitespace-preserving word tokens, then
  * merges runs of consecutive words that match one of `highlights`
- * (case-insensitive, e.g. "21 days" or "$80,000") into single chip
+ * (case-insensitive, e.g. "six figures" or "$4,999") into single chip
  * tokens — each highlight phrase renders as one accent pill, not one
  * pill per word.
  */
@@ -56,13 +58,93 @@ export default function StoryReveal() {
   // as one continuous left-to-right sweep instead of chips popping in
   // ahead of or behind the word-by-word ramp.
   const tokenRefs = useRef<Array<TokenRef | null>>([]);
+  const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   const tokensList = useMemo(() => tokenize(paragraph, highlights), []);
 
   useGSAP(
     () => {
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // Mobile drops the per-word/chip cascade entirely — a whole-block
+      // fade-in-on-scroll instead — since word-by-word color ramping
+      // across text that's also wrapping to several lines on a narrow
+      // screen reads as noisy rather than a controlled, readable reveal.
+      const isMobile = window.matchMedia("(max-width: 640px)").matches;
+
       const entries = tokenRefs.current.filter(Boolean) as TokenRef[];
       if (!entries.length) return;
+      const cards = cardRefs.current.filter(Boolean) as HTMLDivElement[];
+
+      if (reduced) {
+        gsap.set(
+          entries.map((e) => e.el),
+          { clearProps: "all" }
+        );
+        gsap.set(cards, { clearProps: "all" });
+        return;
+      }
+
+      if (isMobile) {
+        // The word/chip spans default to a light, barely-visible gray in
+        // CSS (see .word in storyreveal.module.css) — on desktop that's
+        // the *starting* color of the reveal ramp, always overwritten by
+        // the GSAP tween below. Mobile skips that tween entirely, so it
+        // must set the resting (fully revealed) colors itself or the
+        // paragraph stays illegible gray-on-cream forever.
+        const words = entries.filter((e) => e.kind === "word");
+        const chips = entries.filter((e) => e.kind === "chip");
+        gsap.set(
+          words.map((e) => e.el),
+          { color: "#0a0a0a" }
+        );
+        gsap.set(
+          chips.map((e) => e.el),
+          { color: "#ffffff", backgroundColor: "rgba(255,91,68,1)" }
+        );
+        gsap.set(stageRef.current, { autoAlpha: 0, y: 24 });
+        gsap.to(stageRef.current, {
+          autoAlpha: 1,
+          y: 0,
+          ease: "power2.out",
+          scrollTrigger: {
+            trigger: wrapRef.current,
+            start: "top 75%",
+            end: "top 35%",
+            scrub: 0.4,
+          },
+        });
+
+        // Cards sit below the CTA in normal document flow on mobile (see
+        // .stage's height:auto override in storyreveal.module.css). No
+        // pin here — mobile pinning is what caused the earlier "shaky
+        // scroll" pain (see the svh notes below) — but each card still
+        // gets the same rise-from-the-bottom-of-the-screen treatment:
+        // it starts a good way below the viewport's bottom edge and
+        // scrubs up into its slot. Because the cards are stacked in
+        // flow, their triggers fire one after another, so the reveal
+        // stays effectively sequential.
+        if (cards.length) {
+          cards.forEach((el) => {
+            gsap.fromTo(
+              el,
+              { y: () => window.innerHeight * 0.6, scale: 0.96 },
+              {
+                y: 0,
+                scale: 1,
+                ease: "linear",
+                scrollTrigger: {
+                  trigger: el,
+                  start: "top bottom",
+                  end: "top 60%",
+                  scrub: 0.7,
+                  invalidateOnRefresh: true,
+                },
+              }
+            );
+          });
+        }
+        return;
+      }
 
       const words = entries.filter((e) => e.kind === "word");
       const chips = entries.filter((e) => e.kind === "chip");
@@ -118,6 +200,75 @@ export default function StoryReveal() {
           entry.index
         );
       });
+
+      // Cards are a pass-through second act, not interleaved with the
+      // words: each enters fully below the pinned stage's bottom edge
+      // (= the screen's bottom edge while pinned, clipped until then by
+      // .stage's overflow:hidden), travels continuously upward over the
+      // paragraph WITHOUT stopping at its layout slot, and keeps going
+      // until it's fully off the top of the screen. ease:"none" keeps
+      // the speed constant so the stream reads as scroll-linked
+      // parallax, and a short stagger (a fraction of one card's travel,
+      // not the whole of it) means each card follows the previous one
+      // with a small delay rather than waiting for it to finish. After
+      // the last card exits, a dead "hold" segment (appended below the
+      // cards) keeps the stage pinned while the next section covers it.
+      if (cards.length) {
+        const wordsEnd = entries.length;
+        const cardsStart = wordsEnd * 1.02;
+        const cardTravel = wordsEnd * 0.5;
+        // On-screen daylight between one card's bottom edge and the next
+        // card's top edge as they stream past. The stagger below is
+        // derived from this, NOT a bare fraction of cardTravel — a
+        // ratio-based stagger overlapped the cards whenever the ratio's
+        // pixel equivalent came out smaller than a card's height.
+        const cardGapPx = 56;
+
+        // This card's layout top relative to the stage. Measured via
+        // rects so the pin's own transform (pinType:"transform" shifts
+        // stage and card equally) cancels out; the card's current y
+        // tween value is subtracted so re-evaluation on refresh stays
+        // correct.
+        const relTop = (el: HTMLElement) => {
+          const stage = stageRef.current;
+          if (!stage) return 0;
+          const stageTop = stage.getBoundingClientRect().top;
+          const currentY = Number(gsap.getProperty(el, "y")) || 0;
+          return el.getBoundingClientRect().top - currentY - stageTop;
+        };
+        // Just below the stage's bottom edge / fully above its top edge.
+        const enterY = (el: HTMLElement) =>
+          (stageRef.current?.offsetHeight ?? window.innerHeight) - relTop(el) + 40;
+        const exitY = (el: HTMLElement) => -(relTop(el) + el.offsetHeight + 40);
+
+        let pos = cardsStart;
+        cards.forEach((el) => {
+          tl.fromTo(
+            el,
+            { y: () => enterY(el) },
+            { y: () => exitY(el), ease: "none", duration: cardTravel },
+            pos
+          );
+          // Next card enters once this one has climbed its own height
+          // plus the gap: convert those pixels into timeline time via
+          // this card's total travel distance (enter + exit spans).
+          const stageH = stageRef.current?.offsetHeight ?? window.innerHeight;
+          const totalDistance = stageH + el.offsetHeight + 80;
+          pos += cardTravel * ((el.offsetHeight + cardGapPx) / totalDistance);
+        });
+      }
+
+      // Cover-transition hold: after the last card exits, the stage
+      // stays pinned and motionless for exactly 100svh of scroll while
+      // the next section (VslSection, pulled up by margin-top:-100svh)
+      // slides in from the bottom of the screen OVER this frozen one —
+      // the pin releases precisely when the incoming section has fully
+      // covered the viewport, so the swap underneath is invisible. The
+      // pinned scroll span is wrapHeight - 100svh (pin runs "top top" →
+      // "bottom bottom"), i.e. 420svh of the 520svh .wrap; the active
+      // tweens above occupy the first 320svh of it, so the hold must be
+      // 100/320 of the timeline's active duration.
+      tl.to({}, { duration: tl.duration() * (100 / 320) });
     },
     { scope: wrapRef, dependencies: [tokensList] }
   );
@@ -125,35 +276,62 @@ export default function StoryReveal() {
   let tokenIndex = 0;
 
   return (
-    // svh, NOT vh — this wrapper's total scroll distance must stay
-    // anchored to the stable/small viewport height, matching .stage's
-    // own already-svh-based sizing (see storyreveal.module.css). A
-    // vh-sized wrapper falls out of sync with an svh-sized stage the
-    // instant a real phone's address bar collapses/expands mid-scroll,
-    // producing a real, measured layout jump with scrollY unchanged —
-    // this was the actual cause of the reported "shaky" mobile scroll.
-    <div className={styles.wrap} ref={wrapRef} style={{ height: "260svh", ["--story-bg" as string]: bg }}>
+    // Height lives in storyreveal.module.css (.wrap: 520svh desktop /
+    // auto mobile) — see the comment there for why it's svh-based and
+    // how the 520 breaks down between words, cards, and the cover hold.
+    <div className={styles.wrap} ref={wrapRef} style={{ ["--story-bg" as string]: bg }}>
       <div className={styles.stage} ref={stageRef}>
-        <p className={styles.paragraph}>
-          {tokensList.map((token, i) => {
-            if (/^\s+$/.test(token.text) && !token.isChip) {
-              return <span key={i}>{token.text}</span>;
-            }
-            const idx = tokenIndex++;
-            const kind: "word" | "chip" = token.isChip ? "chip" : "word";
-            return (
-              <span
-                key={i}
-                className={token.isChip ? styles.chip : styles.word}
+        <div className={styles.layout}>
+          <div className={styles.content}>
+            <span className={styles.eyebrow}>{eyebrow}</span>
+            <p className={styles.paragraph}>
+              {tokensList.map((token, i) => {
+                if (/^\s+$/.test(token.text) && !token.isChip) {
+                  return <span key={i}>{token.text}</span>;
+                }
+                const idx = tokenIndex++;
+                const kind: "word" | "chip" = token.isChip ? "chip" : "word";
+                return (
+                  <span
+                    key={i}
+                    className={token.isChip ? styles.chip : styles.word}
+                    ref={(el) => {
+                      if (el) tokenRefs.current[idx] = { el, kind, index: idx };
+                    }}
+                  >
+                    {token.text}
+                  </span>
+                );
+              })}
+            </p>
+            <CtaButton href={tokens.content.navCta.href} label={tokens.content.navCta.label} tone="light" />
+          </div>
+
+          <div className={styles.testimonialCol}>
+            {testimonials.map((t, i) => (
+              <div
+                key={t.name + i}
+                className={`${styles.card} ${i === 1 ? styles.cardShift : ""} ${i === 1 ? styles.cardGrey : styles.cardAccent}`}
                 ref={(el) => {
-                  if (el) tokenRefs.current[idx] = { el, kind, index: idx };
+                  cardRefs.current[i] = el;
                 }}
               >
-                {token.text}
-              </span>
-            );
-          })}
-        </p>
+                {/* Squarish closing-quote glyphs (”” — solid block head,
+                    straight-edged tail slanting down-left), per the
+                    reference design: no rounded bowls. */}
+                <svg className={styles.quoteMark} viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M0 0H42V44L0 80Z" fill="currentColor" />
+                  <path d="M58 0H100V44L58 80Z" fill="currentColor" />
+                </svg>
+                <p className={styles.quote}>{t.quote}</p>
+                <div className={styles.authorRow}>
+                  <span className={styles.authorName}>{t.name}</span>
+                  <span className={styles.authorRole}>{t.role}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

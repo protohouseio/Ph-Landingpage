@@ -1,0 +1,181 @@
+/*
+ * Single source of truth for every pill-shaped CTA button on the site
+ * (nav, StoryReveal, ...). The full hover treatment — lift, accent
+ * fill-sweep, letter-by-letter cascade, dot rotate — is defined once
+ * here; consumers only vary tone (color) and size.
+ */
+
+.cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 999px;
+  padding: 8px 8px 8px 24px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: transform 0.5s cubic-bezier(0.785, 0.135, 0.15, 0.86);
+}
+
+.cta:hover {
+  transform: translateY(-1px);
+}
+
+.cta:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+/* Accent fill layer: starts fully clipped below the pill's bottom edge,
+   sweeps up to cover it on hover. Sits behind the label/dot. */
+.fill {
+  position: absolute;
+  inset: 0;
+  background: var(--color-accent);
+  border-radius: inherit;
+  clip-path: inset(100% 0 0 0);
+  transition: clip-path 0.55s cubic-bezier(0.785, 0.135, 0.15, 0.86);
+  z-index: 0;
+}
+
+.cta:hover .fill {
+  clip-path: inset(0 0 0 0);
+}
+
+.label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+}
+
+/* Letter-by-letter hover cascade: each character gets its own clipped
+   column holding two stacked copies; CtaButton's onLabelHover staggers
+   both sets' yPercent on hover so the label reads as cascading rather
+   than moving as one block — same mechanic as the nav's own links. */
+.charCol {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  white-space: pre;
+}
+
+.top,
+.bottom {
+  display: block;
+  transition: color 0.3s;
+}
+
+.bottom {
+  position: absolute;
+  left: 0;
+  top: 100%;
+}
+
+.cta:hover .top,
+.cta:hover .bottom {
+  color: #fff;
+}
+
+.dot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  transition: background 0.4s cubic-bezier(0.785, 0.135, 0.15, 0.86), transform 0.5s cubic-bezier(0.785, 0.135, 0.15, 0.86);
+}
+
+.cta:hover .dot {
+  transform: rotate(45deg);
+}
+
+.dot svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Tone: the CTA's own resting colors, chosen opposite the page bg it
+   sits on (mirrors SiteNav's data-tone convention). The hover fill is
+   always the same accent sweep regardless of tone. */
+.dark {
+  background: #fff;
+}
+.dark .top,
+.dark .bottom {
+  color: #0a0a0a;
+}
+.dark .dot {
+  background: #0a0a0a;
+  color: #fff;
+}
+
+.light {
+  background: #0a0a0a;
+}
+.light .top,
+.light .bottom {
+  color: #fff;
+}
+.light .dot {
+  background: var(--color-accent);
+  color: #fff;
+}
+/* On the light tone the dot is already accent-colored, so it would
+   disappear into the hover fill sweep (also accent) — flip it to black
+   instead, same as the fill covers the pill in accent everywhere else. */
+.light.cta:hover .dot {
+  background: #0a0a0a;
+}
+
+/* Compact size — used by the nav, which has a fixed header height. */
+.compact {
+  height: 40px;
+  gap: 10px;
+  padding: 0 6px 0 18px;
+  font-size: 14px;
+}
+.compact .dot {
+  width: 28px;
+  height: 28px;
+}
+.compact .dot svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* The nav's further-shrunk scrolled/collapsed pill state is applied
+   from sitenav.module.css via the cta-button/cta-button-dot global
+   marker classes (collapse state is imperative DOM, not React, for
+   scroll-frame performance — see setProgress in SiteNav.tsx), not a
+   local class here. */
+
+@media (max-width: 640px) {
+  .cta {
+    font-size: 14px;
+    padding: 6px 6px 6px 20px;
+  }
+  .dot {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta,
+  .fill,
+  .dot,
+  .top,
+  .bottom {
+    transition: none;
+  }
+}

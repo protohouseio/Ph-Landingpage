@@ -354,12 +354,12 @@ export default function IntroStory({ onLogoFadeStart, onSecondStory, onLightBack
       const collapseRampEnd = 0.42;
       // Light-background threshold: fires right as the zoom-out's zoomBg
       // layer starts becoming visually noticeable (that fade-in itself
-      // begins at zoomStart + zoomDuration*0.05, see the zoom tweens
+      // begins at zoomStart + zoomDuration*0.2, see the zoom tweens
       // below) — not gated on StoryReveal's own pinned range starting,
       // which is much later (progress 1.0) and reads as a noticeably
       // delayed color-flip relative to when the screen actually turns
       // light.
-      const lightBgThreshold = zoomStart + zoomDuration * 0.15;
+      const lightBgThreshold = zoomStart + zoomDuration * 0.25;
       let wasLight = false;
       ScrollTrigger.create({
         trigger: wrapRef.current,
@@ -458,8 +458,15 @@ export default function IntroStory({ onLogoFadeStart, onSecondStory, onLightBack
       );
       master.to(zoomLayerRef.current, { autoAlpha: 0, ease: "power1.in", duration: zoomDuration * 0.5 }, zoomStart);
       // Light bg must be fully in before the stage finishes fading, or a
-      // black frame flashes between them.
-      master.to(zoomBgRef.current, { autoAlpha: 1, ease: "power1.out", duration: zoomDuration * 0.4 }, zoomStart + zoomDuration * 0.05);
+      // black frame flashes between them — starts at 0.2*zoomDuration
+      // (well before zoomLayer's own fade-out completes at 0.5*zoomDuration,
+      // for overlap) and now runs almost all the way to the pin's release
+      // point (progress 1), rather than finishing at ~0.91 and leaving
+      // ~9% of the timeline (~56vh) of scroll where the screen already
+      // looks white but nothing else happens before StoryReveal's own
+      // content starts. That gap read as a stall between "screen turns
+      // white" and "text reveal begins."
+      master.to(zoomBgRef.current, { autoAlpha: 1, ease: "power1.out", duration: zoomDuration * 0.75 }, zoomStart + zoomDuration * 0.2);
 
       // ---------------- Phase 1: logo load-in (autoplay) ----------------
       // Plays once on load. Story 1's entrance is "played" by animating

@@ -143,108 +143,21 @@
   outline-offset: 5px;
 }
 
-/* CTA pill: on hover, an accent-colored fill sweeps up from the bottom
-   edge (clip-path inset, animated by GSAP) while the label cascades
-   letter-by-letter — same charCol mechanic as the nav links. */
-.navcta {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  height: 40px;
-  white-space: nowrap;
-  background: #fff;
-  color: #0a0a0a;
-  border-radius: 999px;
-  padding: 0 6px 0 18px;
-  font-weight: 600;
-  font-size: 14px;
-  overflow: hidden;
-  flex-shrink: 0;
-  transition: transform 0.5s cubic-bezier(0.785, 0.135, 0.15, 0.86);
-}
-
-.collapsed .navcta {
+/* The CTA button itself is the shared CtaButton component (tone comes
+   from this nav's own `tone` state — see SiteNav.tsx) — its base look
+   and hover animation live in src/components/shared/ctabutton.module.css,
+   the single source of truth every CTA pill on the site draws from.
+   Only the nav-specific "collapsed" shrink stays here, reaching into the
+   shared component's global marker classes since collapse state is
+   applied imperatively (classList, not React state — see setProgress in
+   SiteNav.tsx) for scroll-frame performance. */
+.collapsed :global(.cta-button) {
   height: 36px;
-  padding: 0 5px 0 14px;
+  padding: 0 6px 0 14px;
   font-size: 13px;
 }
 
-.navcta:hover {
-  transform: translateY(-1px);
-}
-
-/* Accent fill layer: starts fully clipped below the pill's bottom edge,
-   sweeps up to cover it on hover. Sits behind the label/dot (z-index). */
-.navctaFill {
-  position: absolute;
-  inset: 0;
-  background: var(--color-accent);
-  border-radius: inherit;
-  clip-path: inset(100% 0 0 0);
-  transition: clip-path 0.55s cubic-bezier(0.785, 0.135, 0.15, 0.86);
-  z-index: 0;
-}
-
-.navcta:hover .navctaFill {
-  clip-path: inset(0 0 0 0);
-}
-
-.navctaLabel {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-}
-
-.ctaTop,
-.ctaBottom {
-  display: block;
-  color: #0a0a0a;
-  transition: color 0.3s;
-}
-
-.ctaBottom {
-  position: absolute;
-  left: 0;
-  top: 100%;
-}
-
-.navcta:hover .ctaTop,
-.navcta:hover .ctaBottom {
-  color: #fff;
-}
-
-.navctaDot {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  background: #0a0a0a;
-  color: #fff;
-  flex-shrink: 0;
-  transition: background 0.4s cubic-bezier(0.785, 0.135, 0.15, 0.86), transform 0.5s cubic-bezier(0.785, 0.135, 0.15, 0.86);
-}
-
-.navcta:hover .navctaDot {
-  transform: rotate(45deg);
-}
-
-.navcta:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 3px;
-}
-
-.navctaDot svg {
-  width: 13px;
-  height: 13px;
-}
-
-.collapsed .navctaDot {
+.collapsed :global(.cta-button-dot) {
   width: 24px;
   height: 24px;
 }
@@ -451,7 +364,7 @@
 }
 
 @media (max-width: 640px) {
-  .navcta {
+  .navSide :global(.cta-button) {
     display: none;
   }
 }
@@ -460,9 +373,6 @@
   .root,
   .bar,
   .bar2,
-  .navcta,
-  .navctaFill,
-  .navctaDot,
   .menu {
     transition: none;
   }

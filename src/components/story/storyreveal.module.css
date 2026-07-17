@@ -5,29 +5,67 @@
  * site — no CSS transitions/keyframes drive the reveal itself.
  */
 
+/* svh, NOT vh — the wrapper's total scroll distance must stay anchored
+   to the stable/small viewport height, matching .stage's own svh-based
+   sizing. A vh-sized wrapper falls out of sync with an svh-sized stage
+   the instant a real phone's address bar collapses/expands mid-scroll —
+   that was the actual cause of the reported "shaky" mobile scroll.
+
+   520svh = 100 (viewport the pin occupies) + 320 of active tweens
+   (word reveal + card pass-through) + 100 of motionless "hold" during
+   which the next section (VslSection, margin-top:-100svh) slides up
+   and covers the frozen stage before the pin releases. */
 .wrap {
   position: relative;
+  height: 520svh;
   background: var(--story-bg, #fafaf8);
 }
 
 .stage {
+  position: relative;
   height: 100svh;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   overflow: hidden;
   padding: 0 clamp(24px, 8vw, 160px);
 }
 
-.paragraph {
-  max-width: 1180px;
-  margin: 0 auto;
-  text-align: center;
+/* .content flows normally; .testimonialCol is positioned absolutely
+   against this (see below) so it can overlap .content's text — the
+   whole point being the glass cards read as sitting *over* the
+   paragraph, not politely beside it. */
+.layout {
+  position: relative;
+  width: 100%;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 28px;
+  max-width: 1160px;
+}
+
+.eyebrow {
   font-family: var(--font-heading);
   font-weight: 700;
-  font-size: clamp(22px, 3.4vw, 52px);
-  line-height: 1.35;
-  letter-spacing: -0.015em;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.paragraph {
+  text-align: left;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(28px, 4.4vw, 64px);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
 }
 
 .word {
@@ -36,10 +74,6 @@
   white-space: pre;
 }
 
-/* Starting state matches .word's unrevealed gray/transparent look — GSAP
-   (see StoryReveal.tsx) fades in the accent background + white text as
-   scroll reaches this token, same as every other word's color ramp, so
-   chips never pop in ahead of the reveal. */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -51,11 +85,173 @@
   white-space: nowrap;
 }
 
+/* The CTA button itself is the shared CtaButton component — see
+   src/components/shared/ctabutton.module.css for its styling (the
+   single source of truth for every pill CTA's hover animation). */
+
+/* Testimonial cards float *over* the paragraph — absolutely positioned
+   against .layout, right-anchored but wide enough to reach toward
+   center, so their glass genuinely overlaps text instead of sitting
+   clear of it. Cards 1 & 3 share this same right-anchored position;
+   card 2 alone shifts further left via .cardShift, breaking that
+   alignment and deepening the overlap for the middle card. */
+.testimonialCol {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 28px;
+  width: clamp(420px, 40vw, 640px);
+  z-index: 2;
+}
+
+.card {
+  position: relative;
+  width: 100%;
+  /* Fixed, not auto — all 3 cards read as one consistent size regardless
+     of quote length, with the author block pinned to the bottom via the
+     flex space-between below (a short quote just leaves more visible
+     gap above the author, not a shorter card). */
+  min-height: 300px;
+  padding: 40px 36px 32px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(28px) saturate(1.4);
+  /* backdrop-filter: blur(28px) saturate(1.4); */
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 32px 64px -24px rgba(10, 10, 10, 0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.cardShift {
+  margin-right: clamp(60px, 9vw, 150px);
+}
+
+/* Quote mark: an actual SVG (not a font glyph), stretched to the card's
+   full height as a background watermark. Pushed down from the top so it
+   bleeds off the card's *bottom* edge (cropped by .card's own
+   overflow:hidden), matching the reference where the closing quotes run
+   off the lower-right of the card. */
+.quoteMark {
+  position: absolute;
+  right: 20px;
+  top: 0;
+  height: 40%;
+  width: auto;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cardAccent .quoteMark {
+  color: var(--color-accent);
+  opacity: 0.18;
+}
+
+.cardGrey .quoteMark {
+  color: var(--color-text-on-light-muted);
+  opacity: 0.12;
+}
+
+.quote {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--color-text-on-light);
+}
+
+/* Pinned to the card's bottom-right by the parent's space-between +
+   this row's own align-self/align-items, rather than following directly
+   under the quote — the gap between them is whatever space-between
+   leaves, not a fixed margin. */
+.authorRow {
+  position: relative;
+  z-index: 1;
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  text-align: right;
+}
+
+.authorName {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--color-text-on-light);
+}
+
+.authorRole {
+  font-size: 13px;
+  color: var(--color-text-on-light-secondary);
+}
+
 @media (max-width: 640px) {
-  .paragraph {
-    font-size: clamp(18px, 6vw, 28px);
+  /* No pin and no cover-hold on mobile — the section is normal flow, so
+     the wrapper must size to its content, not the desktop scroll span. */
+  .wrap {
+    height: auto;
   }
+
   .stage {
     padding: 0 20px;
+    /* Desktop pins .stage at exactly 100svh with overflow:hidden for the
+       ScrollTrigger pin; mobile has no pin (see the isMobile branch in
+       StoryReveal.tsx) and stacks content + testimonials in normal flow,
+       which needs room to grow — a fixed 100svh would clip the cards. */
+    height: auto;
+    overflow: visible;
+    padding-top: 64px;
+    padding-bottom: 64px;
+  }
+
+  .layout {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 40px;
+  }
+
+  .content {
+    gap: 20px;
+    max-width: 100%;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+  }
+
+  .paragraph {
+    font-size: clamp(24px, 8vw, 34px);
+    line-height: 1.18;
+  }
+
+  /* No overlap on mobile — a single narrow column has no spare width for
+     cards to float over text without just obscuring it, so they revert
+     to normal document flow, stacked below .content. */
+  .testimonialCol {
+    position: static;
+    transform: none;
+    align-items: stretch;
+    width: 100%;
+    gap: 20px;
+  }
+
+  .card {
+    padding: 30px 26px 26px;
+  }
+
+  .cardShift {
+    margin-right: 0;
   }
 }

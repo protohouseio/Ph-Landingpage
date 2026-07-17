@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import IntroStory from "@/components/intro/IntroStory";
 import StoryReveal from "@/components/story/StoryReveal";
+import VslSection from "@/components/vsl/VslSection";
 import Hero from "@/components/hero/Hero";
 import SiteNav, { SiteNavHandle } from "@/components/nav/SiteNav";
 
@@ -19,6 +20,7 @@ export default function Home() {
           onLightBackground={(active) => navRef.current?.setLight(active)}
         />
         <StoryReveal />
+        <VslSection />
         <Hero />
       </main>
     </>

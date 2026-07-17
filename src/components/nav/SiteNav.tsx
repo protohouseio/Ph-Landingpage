@@ -5,6 +5,7 @@ import { useGSAP } from "@gsap/react";
 import { gsap } from "@/lib/gsap";
 import { tokens } from "@/config/design-tokens";
 import ArcLogo from "@/components/shared/ArcLogo";
+import CtaButton from "@/components/shared/CtaButton";
 import styles from "./sitenav.module.css";
 
 export type SiteNavHandle = {
@@ -218,22 +219,7 @@ const SiteNav = forwardRef<SiteNavHandle, {}>(function SiteNav(_props, ref) {
         </div>
 
         <div className={styles.navSide}>
-          <a
-            className={styles.navcta}
-            href={tokens.content.navCta.href}
-            onMouseEnter={(e) => onLabelHover(e.currentTarget, true, `.${styles.ctaTop}`, `.${styles.ctaBottom}`)}
-            onMouseLeave={(e) => onLabelHover(e.currentTarget, false, `.${styles.ctaTop}`, `.${styles.ctaBottom}`)}
-          >
-            <span className={styles.navctaFill} aria-hidden="true" />
-            <span className={styles.navctaLabel}>
-              <SplitChars text={navLabel} topClass={styles.ctaTop} bottomClass={styles.ctaBottom} />
-            </span>
-            <span className={styles.navctaDot}>
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <path d="M7 17L17 7M17 7H8M17 7V16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-          </a>
+          <CtaButton href={tokens.content.navCta.href} label={navLabel} tone={tone} size="compact" />
 
           <button
             className={styles.burger}
