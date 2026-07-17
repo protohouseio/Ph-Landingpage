@@ -367,8 +367,26 @@
 }
 
 @media (max-width: 640px) {
+  /* Story 0's lines must stay single-line — white-space:nowrap (set on
+     .story > span above) is required for its word-by-word reveal mask
+     (see storyWordRefs in IntroStory.tsx) to slide up correctly, so
+     this size is capped to what its own two lines fit at without
+     clipping (measured against real rendered widths, not estimated). */
   .story {
-    font-size: clamp(14px, 4.4vw, 24px);
+    font-size: clamp(20px, 6.4vw, 25px);
+  }
+  /* Stories 1-3 fade/rise as whole blocks (no per-word mask), so they
+     can safely wrap — letting this run meaningfully bigger while the
+     two genuinely long lines ("ended up with something broken?",
+     "market-ready together in 21 days.") wrap to two rows instead of
+     being clipped by .story > span's overflow:hidden, which is exactly
+     what happened at this same size with nowrap still active (measured:
+     up to 84px of text silently cut off). */
+  .storyWrap {
+    font-size: clamp(24px, 8vw, 38px);
+  }
+  .storyWrap > span {
+    white-space: normal;
   }
   .caption {
     bottom: 7%;

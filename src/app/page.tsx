@@ -8,17 +8,17 @@ import SiteNav, { SiteNavHandle } from "@/components/nav/SiteNav";
 
 export default function Home() {
   const navRef = useRef<SiteNavHandle>(null);
-  const lightZoneRef = useRef<HTMLDivElement>(null);
 
   return (
     <>
-      <SiteNav ref={navRef} lightZoneRef={lightZoneRef} />
+      <SiteNav ref={navRef} />
       <main>
         <IntroStory
           onLogoFadeStart={() => navRef.current?.reveal()}
           onSecondStory={(progress) => navRef.current?.setProgress(progress)}
+          onLightBackground={(active) => navRef.current?.setLight(active)}
         />
-        <StoryReveal ref={lightZoneRef} />
+        <StoryReveal />
         <Hero />
       </main>
     </>

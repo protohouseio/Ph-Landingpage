@@ -19,6 +19,12 @@ export type IntroStoryProps = {
    * open/closed in lockstep with the scrollbar) rather than firing a
    * fixed-duration tween at a single threshold. */
   onSecondStory?: (progress: number) => void;
+  /** Fires as soon as the zoom-out finale's light background layer
+   * becomes visually dominant — well before StoryReveal's own pinned
+   * range begins. SiteNav flips its icon/text tone right on this signal
+   * instead of waiting for StoryReveal to actually start, which reads
+   * as noticeably late relative to when the screen actually turns light. */
+  onLightBackground?: (active: boolean) => void;
 };
 
 gsap.registerPlugin(useGSAP);
@@ -208,7 +214,7 @@ const AccentArc = ({
   );
 };
 
-export default function IntroStory({ onLogoFadeStart, onSecondStory }: IntroStoryProps) {
+export default function IntroStory({ onLogoFadeStart, onSecondStory, onLightBackground }: IntroStoryProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const logoPhaseRef = useRef<HTMLDivElement>(null);
   const logoBoxRef = useRef<HTMLDivElement>(null);
@@ -309,6 +315,14 @@ export default function IntroStory({ onLogoFadeStart, onSecondStory }: IntroStor
       // many tweens get added or how long each one is.
       const TIMELINE_DURATION = 1;
 
+      // Zoom-out finale timing — declared up here (not just where the
+      // zoom tweens themselves are added, further down) because the
+      // tone-tracking ScrollTrigger below also needs it, and duplicating
+      // these as separate magic numbers in two places would let them
+      // silently drift out of sync.
+      const zoomStart = 0.84;
+      const zoomDuration = 0.16;
+
       const master = gsap.timeline({
         defaults: { duration: TIMELINE_DURATION },
         scrollTrigger: {
@@ -338,6 +352,15 @@ export default function IntroStory({ onLogoFadeStart, onSecondStory }: IntroStor
       // perturb the master's own scrub/pin math.
       const collapseRampStart = 0.28;
       const collapseRampEnd = 0.42;
+      // Light-background threshold: fires right as the zoom-out's zoomBg
+      // layer starts becoming visually noticeable (that fade-in itself
+      // begins at zoomStart + zoomDuration*0.05, see the zoom tweens
+      // below) — not gated on StoryReveal's own pinned range starting,
+      // which is much later (progress 1.0) and reads as a noticeably
+      // delayed color-flip relative to when the screen actually turns
+      // light.
+      const lightBgThreshold = zoomStart + zoomDuration * 0.15;
+      let wasLight = false;
       ScrollTrigger.create({
         trigger: wrapRef.current,
         start: "top top",
@@ -345,6 +368,12 @@ export default function IntroStory({ onLogoFadeStart, onSecondStory }: IntroStor
         onUpdate: (self) => {
           const raw = (self.progress - collapseRampStart) / (collapseRampEnd - collapseRampStart);
           onSecondStory?.(gsap.utils.clamp(0, 1, raw));
+
+          const isLight = self.progress >= lightBgThreshold;
+          if (isLight !== wasLight) {
+            wasLight = isLight;
+            onLightBackground?.(isLight);
+          }
         },
       });
 
@@ -412,8 +441,7 @@ export default function IntroStory({ onLogoFadeStart, onSecondStory }: IntroStor
       // go, ordinary scroll continuity carries straight into it with no
       // dead frame: nothing to reveal mid-pin, because there's no gap
       // between "zoom finished" and "normal scrolling resumes."
-      const zoomStart = 0.84;
-      const zoomDuration = 0.16;
+      // (zoomStart/zoomDuration declared earlier alongside TIMELINE_DURATION)
       // Scale is capped at 4 (not higher) and the alpha fade is
       // front-loaded to finish HALFWAY through the zoom, deliberately:
       // this layer contains 6 feGaussianBlur SVG filters + 48 lines, and
@@ -516,7 +544,16 @@ export default function IntroStory({ onLogoFadeStart, onSecondStory }: IntroStor
       </div>
 
       {/* ---- Phase 2: pinned, scroll-driven story ---- */}
-      <div className={styles.wrap} ref={wrapRef} style={{ height: `${tokens.intro.heightVh}vh` }}>
+      {/* svh (stable/small viewport height), NOT vh: vh tracks the LIVE
+          viewport, which shrinks/grows as a real phone's address bar
+          collapses/expands *during* an active scroll gesture. Since
+          .stage (below) is already sized in svh, a vh-sized .wrap falls
+          out of sync with it the instant that happens — the wrapper's
+          total scroll distance shifts while the pinned content's own
+          size stays put, producing a real, measured ~384px layout jump
+          with scrollY completely unchanged. This is what read as the
+          intro/story feeling "shaky" while scrolling on mobile. */}
+      <div className={styles.wrap} ref={wrapRef} style={{ height: `${tokens.intro.heightVh}svh` }}>
         <div
           className={styles.zoomBg}
           ref={zoomBgRef}
@@ -556,7 +593,11 @@ export default function IntroStory({ onLogoFadeStart, onSecondStory }: IntroStor
                 />
               </div>
               {STORIES.map((s, i) => (
-                <div key={i} className={styles.story} ref={setStoryRef(i, 0)}>
+                <div
+                  key={i}
+                  className={`${styles.story} ${i !== 0 ? styles.storyWrap : ""}`}
+                  ref={setStoryRef(i, 0)}
+                >
                   <span>{i === 0 ? renderWords(s.line1, i, 0) : s.line1}</span>
                   <span className={i === STORIES.length - 1 ? styles.l2accent : styles.l2}>
                     {i === 0 ? renderWords(s.line2, i, 0) : s.line2}
@@ -594,7 +635,11 @@ export default function IntroStory({ onLogoFadeStart, onSecondStory }: IntroStor
                 />
               </div>
               {STORIES.map((s, i) => (
-                <div key={i} className={styles.story} ref={setStoryRef(i, 1)}>
+                <div
+                  key={i}
+                  className={`${styles.story} ${i !== 0 ? styles.storyWrap : ""}`}
+                  ref={setStoryRef(i, 1)}
+                >
                   <span>{i === 0 ? renderWords(s.line1, i, 1) : s.line1}</span>
                   <span className={i === STORIES.length - 1 ? styles.l2accent : styles.l2}>
                     {i === 0 ? renderWords(s.line2, i, 1) : s.line2}

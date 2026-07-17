@@ -181,7 +181,14 @@
 }
 
 .vspace {
-  height: 170vh;
+  /* svh, not vh — this defines the video-expand's scroll distance,
+     which must stay anchored to the stable/small viewport height so it
+     doesn't fall out of sync with other svh-based sections when a real
+     phone's address bar collapses/expands mid-scroll (see .wrap in
+     IntroStory.tsx and StoryReveal.tsx for the same fix + full
+     rationale — this was the cause of the reported "shaky" mobile
+     scroll). */
+  height: 170svh;
   position: relative;
 }
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useGSAP } from "@gsap/react";
-import { gsap, ScrollTrigger } from "@/lib/gsap";
+import { gsap } from "@/lib/gsap";
 import { tokens } from "@/config/design-tokens";
 import ArcLogo from "@/components/shared/ArcLogo";
 import styles from "./sitenav.module.css";
@@ -18,12 +18,12 @@ export type SiteNavHandle = {
    * the pill glides open/closed in lockstep with the scrollbar rather
    * than snapping via a fixed-duration tween. */
   setProgress: (progress: number) => void;
-};
-
-type SiteNavProps = {
-  /** Marks where the page turns from dark (intro) to light (Hero) — the
-   * nav tracks this boundary to flip its `data-tone` attribute. */
-  lightZoneRef: React.RefObject<HTMLElement | null>;
+  /** Flips the nav's icon/text tone: light-background mode (dark ink)
+   * when `active` is true, dark-background mode (white ink) when false.
+   * Called by IntroStory as soon as the zoom-out's light background
+   * becomes visually dominant — not gated on any later section actually
+   * starting. */
+  setLight: (active: boolean) => void;
 };
 
 /** Splits a label into one <span> per character, each holding a "top" and
@@ -57,21 +57,38 @@ function SplitChars({ text, topClass, bottomClass }: { text: string; topClass: s
  * browsers composite `position: fixed` elements onto their own layer, so
  * the blend can never see the real page paint beneath it (verified: the
  * exact same blended element renders correctly in normal flow but goes
- * fully invisible under `position: fixed`). Instead, a `ScrollTrigger`
- * watches `lightZoneRef`'s top edge and flips a `data-tone` attribute
- * (dark/light), which the CSS uses to pick explicit ink colors.
+ * fully invisible under `position: fixed`). Instead, IntroStory calls
+ * `setLight()` (below) the moment its own zoom-out reveals the light
+ * background, flipping a `data-tone` attribute the CSS uses to pick
+ * explicit ink colors — not a ScrollTrigger watching a later section's
+ * boundary, which would flip noticeably after the screen already turned
+ * light.
  */
-const SiteNav = forwardRef<SiteNavHandle, SiteNavProps>(function SiteNav({ lightZoneRef }, ref) {
+const SiteNav = forwardRef<SiteNavHandle, {}>(function SiteNav(_props, ref) {
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
+  const menuItemRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [tone, setTone] = useState<"light" | "dark">("dark");
+  // Real React state, NOT an imperative classList.add — the className
+  // below is React-controlled (it also reflects menuOpen), so any
+  // imperatively-added class gets silently wiped the next time this
+  // component re-renders for an unrelated reason (e.g. opening the
+  // menu). That's exactly what broke the mobile menu: revealing the
+  // nav added `.revealed` via classList.add, but the very next
+  // re-render (toggling menuOpen) reset className to the JSX template,
+  // dropping `.revealed` — and with it, `pointer-events: auto`, which
+  // .bar inherits. The nav bar kept rendering visually but silently
+  // stopped accepting any clicks, including on the burger/close button.
+  const [revealed, setRevealed] = useState(false);
   const collapseTlRef = useRef<gsap.core.Timeline | null>(null);
+  const menuTlRef = useRef<gsap.core.Timeline | null>(null);
   const lastProgressRef = useRef(-1);
 
   useImperativeHandle(ref, () => ({
     reveal: () => {
-      rootRef.current?.classList.add(styles.revealed);
+      setRevealed(true);
       gsap.to(rootRef.current, {
         autoAlpha: 1,
         duration: tokens.motion.navFadeDuration,
@@ -88,6 +105,9 @@ const SiteNav = forwardRef<SiteNavHandle, SiteNavProps>(function SiteNav({ light
       lastProgressRef.current = progress;
       rootRef.current?.classList.toggle(styles.collapsed, progress > 0.5);
       collapseTlRef.current?.progress(progress);
+    },
+    setLight: (active: boolean) => {
+      setTone(active ? "light" : "dark");
     },
   }));
 
@@ -118,31 +138,39 @@ const SiteNav = forwardRef<SiteNavHandle, SiteNavProps>(function SiteNav({ light
       }
       collapseTlRef.current = tl;
 
-      // Deferred (not gated on lightZoneRef.current up front — ref
-      // mutations are silent to React and won't reliably re-run this
-      // effect, so the DOM node is re-read fresh inside the timeout
-      // instead). The delay also lets the intro's own pin-spacer
-      // (hundreds of vh) finish settling first, same as Hero.tsx's own
-      // headline trigger — creating a ScrollTrigger before that layout
-      // has resolved bakes in a stale `start` position.
-      let st: ScrollTrigger | undefined;
-      const createTimer = setTimeout(() => {
-        if (!lightZoneRef.current) return;
-        st = ScrollTrigger.create({
-          trigger: lightZoneRef.current,
-          start: "top top",
-          onEnter: () => setTone("light"),
-          onLeaveBack: () => setTone("dark"),
-        });
-      }, 500);
+      // Mobile menu: one paused GSAP timeline, played/reversed by the
+      // menuOpen effect below — NOT the CSS opacity fade this used to
+      // be. The panel clip-reveals downward from the top edge while
+      // each link's label rises up through its own overflow-clipped
+      // mask, staggered, so opening/closing reads as one coordinated
+      // sweep instead of an instant show/hide.
+      const menuItems = menuItemRefs.current.filter(Boolean) as HTMLSpanElement[];
+      if (menuPanelRef.current && menuItems.length) {
+        gsap.set(menuPanelRef.current, { clipPath: "inset(0 0 100% 0)" });
+        gsap.set(menuItems, { yPercent: 130 });
 
-      return () => {
-        clearTimeout(createTimer);
-        st?.kill();
-      };
+        menuTlRef.current = gsap
+          .timeline({ paused: true })
+          .to(menuPanelRef.current, { clipPath: "inset(0 0 0% 0)", duration: 0.5, ease: "power3.inOut" })
+          .to(menuItems, { yPercent: 0, duration: 0.65, ease: "power3.out", stagger: 0.06 }, "-=0.3");
+      }
     },
     { scope: rootRef }
   );
+
+  // Plays/reverses the menu timeline built above in lockstep with the
+  // button toggle — kept as a plain effect (not folded into the
+  // useGSAP above) because it needs to re-run on every menuOpen flip,
+  // while the timeline itself is only built once on mount.
+  useEffect(() => {
+    const tl = menuTlRef.current;
+    if (!tl) return;
+    if (menuOpen) {
+      tl.play();
+    } else {
+      tl.reverse();
+    }
+  }, [menuOpen]);
 
   // Letter-by-letter hover reveal: each character's current copy rises
   // out of view while its duplicate rises in from below, staggered
@@ -161,11 +189,12 @@ const SiteNav = forwardRef<SiteNavHandle, SiteNavProps>(function SiteNav({ light
   };
 
   const navLabel = tokens.content.navCta.label;
+  menuItemRefs.current = [];
 
   return (
     <div
       ref={rootRef}
-      className={`${styles.root} ${menuOpen ? styles.menuOpen : ""}`}
+      className={`${styles.root} ${revealed ? styles.revealed : ""} ${menuOpen ? styles.menuOpen : ""}`}
       style={{ opacity: 0, visibility: "hidden" }}
       data-tone={tone}
     >
@@ -218,14 +247,57 @@ const SiteNav = forwardRef<SiteNavHandle, SiteNavProps>(function SiteNav({ light
         </div>
       </div>
 
-      <div className={styles.menu}>
-        {tokens.content.nav.map((item) => (
-          <a key={item.label} className={styles.mlink} href={item.href}>
-            {item.label}
-          </a>
-        ))}
-        <a className={styles.mcta} href={tokens.content.navCta.href}>
-          {tokens.content.navCta.label}
+      <div className={styles.menu} ref={menuPanelRef}>
+        {/* Large tilted half-logo watermark — a crop of ArcLogo's own
+            paths to a 0 0 36 36 viewBox, which keeps only the left-edge
+            cluster plus a sliver of the center diamond. Purely
+            decorative background texture, not interactive. */}
+        <div className={styles.menuWatermark} aria-hidden="true">
+          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ overflow: "hidden" }}>
+            <path d="M0 11.9514V17.3372C9.57779 17.3372 17.3372 9.57779 17.3372 0H11.9514C11.9514 6.58646 6.5934 11.9514 0 11.9514Z" fill="currentColor" />
+            <path d="M0 18.6625V24.0483C6.58646 24.0483 11.9514 29.4063 11.9514 35.9997H17.3372C17.3372 26.4219 9.57779 18.6625 0 18.6625Z" fill="currentColor" />
+            <path d="M36.0011 11.9514C29.4147 11.9514 24.0497 6.5934 24.0497 0H18.6639C18.6639 9.57779 26.4233 17.3372 36.0011 17.3372V11.9514Z" fill="currentColor" />
+            <path d="M36.0003 18.6628C26.4225 18.6628 18.6631 26.4222 18.6631 36H24.0489C24.0489 29.4135 29.4069 24.0486 36.0003 24.0486V18.6628Z" fill="currentColor" />
+          </svg>
+        </div>
+
+        <div className={styles.mlist}>
+          {tokens.content.nav.map((item, i) => (
+            <a
+              key={item.label}
+              className={`${styles.mlink} ${i % 2 === 1 ? styles.mlinkAlt : ""}`}
+              href={item.href}
+              onClick={() => setMenuOpen(false)}
+            >
+              <span className={styles.mlinkIndex}>{String(i + 1).padStart(2, "0")}</span>
+              <span className={styles.mlinkMask}>
+                <span
+                  className={styles.mlinkInner}
+                  ref={(el) => {
+                    menuItemRefs.current.push(el);
+                  }}
+                >
+                  {item.label}
+                </span>
+              </span>
+            </a>
+          ))}
+        </div>
+
+        <a className={styles.mcta} href={tokens.content.navCta.href} onClick={() => setMenuOpen(false)}>
+          <span className={styles.mlinkMask}>
+            <span
+              className={styles.mctaInner}
+              ref={(el) => {
+                menuItemRefs.current.push(el);
+              }}
+            >
+              {tokens.content.navCta.label}
+              <svg className={styles.mctaArrow} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M7 17L17 7M17 7H8M17 7V16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          </span>
         </a>
       </div>
     </div>

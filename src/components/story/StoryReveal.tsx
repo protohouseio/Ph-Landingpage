@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import { gsap } from "@/lib/gsap";
 import { tokens } from "@/config/design-tokens";
@@ -48,7 +48,7 @@ function tokenize(text: string, phrases: readonly string[]): Token[] {
   return tokens;
 }
 
-const StoryReveal = forwardRef<HTMLDivElement>(function StoryReveal(_props, ref) {
+export default function StoryReveal() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   // Every visible token (plain word OR chip) gets a slot here, in reading
@@ -56,8 +56,6 @@ const StoryReveal = forwardRef<HTMLDivElement>(function StoryReveal(_props, ref)
   // as one continuous left-to-right sweep instead of chips popping in
   // ahead of or behind the word-by-word ramp.
   const tokenRefs = useRef<Array<TokenRef | null>>([]);
-
-  useImperativeHandle(ref, () => wrapRef.current as HTMLDivElement);
 
   const tokensList = useMemo(() => tokenize(paragraph, highlights), []);
 
@@ -93,6 +91,14 @@ const StoryReveal = forwardRef<HTMLDivElement>(function StoryReveal(_props, ref)
           end: "bottom bottom",
           scrub: 0.4,
           pin: stageRef.current,
+          // pinType:"transform" is required here — removing it (tried
+          // while chasing a separate mobile-resize issue) measurably
+          // reintroduced the original backward-scroll freeze this was
+          // added to fix in the first place (avg frame gap regressed
+          // from a confirmed 29.5ms back to 41.4ms with 300ms+ spikes).
+          // The .wrap height unit (svh, not vh — see below) is the
+          // actual, correct fix for viewport-resize stability; pinType
+          // stays as-is.
           pinType: "transform",
           anticipatePin: 0,
           invalidateOnRefresh: true,
@@ -119,7 +125,14 @@ const StoryReveal = forwardRef<HTMLDivElement>(function StoryReveal(_props, ref)
   let tokenIndex = 0;
 
   return (
-    <div className={styles.wrap} ref={wrapRef} style={{ height: "260vh", ["--story-bg" as string]: bg }}>
+    // svh, NOT vh — this wrapper's total scroll distance must stay
+    // anchored to the stable/small viewport height, matching .stage's
+    // own already-svh-based sizing (see storyreveal.module.css). A
+    // vh-sized wrapper falls out of sync with an svh-sized stage the
+    // instant a real phone's address bar collapses/expands mid-scroll,
+    // producing a real, measured layout jump with scrollY unchanged —
+    // this was the actual cause of the reported "shaky" mobile scroll.
+    <div className={styles.wrap} ref={wrapRef} style={{ height: "260svh", ["--story-bg" as string]: bg }}>
       <div className={styles.stage} ref={stageRef}>
         <p className={styles.paragraph}>
           {tokensList.map((token, i) => {
@@ -144,6 +157,4 @@ const StoryReveal = forwardRef<HTMLDivElement>(function StoryReveal(_props, ref)
       </div>
     </div>
   );
-});
-
-export default StoryReveal;
+}

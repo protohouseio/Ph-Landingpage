@@ -42,6 +42,13 @@
    whole collapse reads as a single continuous motion. */
 .bar {
   position: relative;
+  /* Explicit z-index above .menu's — without this, .bar (z-index:auto)
+     paints BELOW .menu once .menu gets a positive z-index, per normal
+     CSS stacking order, regardless of DOM order. That buried the burger
+     button (this bar's close toggle) under the full-screen mobile menu
+     overlay whenever it was open, making the menu look impossible to
+     close. */
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 28px;
@@ -296,50 +303,142 @@
   transform: translateX(-50%) rotate(-45deg);
 }
 
+/* Entrance/exit is GSAP-driven (see menuTlRef in SiteNav.tsx), NOT a CSS
+   transition: the panel clip-reveals from the top edge while each
+   link's label rises up through its own clipped mask (.mlinkMask /
+   .mlinkInner below), staggered, so opening reads as one coordinated
+   sweep rather than an instant fade. Only `pointer-events` toggles via
+   the .menuOpen class here — everything visual is GSAP's job. */
 .menu {
   position: fixed;
   inset: 0;
   background: rgba(10, 10, 10, 0.94);
   backdrop-filter: blur(28px) saturate(180%);
-  z-index: 99;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
   padding: 32px;
-  gap: 6px;
-  opacity: 0;
   pointer-events: none;
-  transition: opacity 0.35s ease;
+  overflow: hidden;
 }
 
 .menuOpen .menu {
-  opacity: 1;
   pointer-events: auto;
 }
 
+/* Large tilted half-logo shape in accent color — purely decorative
+   background texture behind the link list, not the full mark (only the
+   left-edge cluster + a sliver of the center diamond survive the crop
+   to a 0 0 36 36 viewBox), echoing the brand rather than repeating it. */
+.menuWatermark {
+  position: absolute;
+  top: 4%;
+  right: -16%;
+  width: 68vw;
+  max-width: 380px;
+  color: var(--color-accent);
+  opacity: 0.16;
+  transform: rotate(-22deg);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.menuWatermark svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: hidden;
+}
+
+.mlist {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .mlink {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.mlist a:last-child {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.mlinkIndex {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(11px, 3vw, 13px);
+  color: rgba(255, 255, 255, 0.42);
+  flex-shrink: 0;
+  min-width: 22px;
+}
+
+/* Clips each link label to its own line box so the GSAP yPercent
+   reveal (see menuTlRef) rises up from underneath rather than just
+   fading — the same reveal-from-below language used for the intro's
+   story words and the desktop nav's hover cascade. */
+.mlinkMask {
+  display: block;
+  overflow: hidden;
+}
+
+.mlinkInner {
+  display: block;
   font-family: var(--font-heading);
   font-weight: 700;
-  font-size: 40px;
+  font-size: clamp(30px, 9vw, 44px);
   letter-spacing: -0.02em;
   color: #fff;
-  padding: 10px 0;
+  will-change: transform;
+}
+
+/* Alternating type treatment — every other item shifts to an italic,
+   lighter weight for visual rhythm against the bold items either side. */
+.mlinkAlt .mlinkInner {
+  font-style: italic;
+  font-weight: 500;
 }
 
 .mcta {
-  margin-top: 28px;
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
   align-self: flex-start;
-  background: #fff;
-  color: #0a0a0a;
-  border-radius: 14px;
-  padding: 18px 32px;
-  font-weight: 600;
-  font-size: 16px;
+  margin-top: 28px;
+  overflow: hidden;
 }
 
-.mcta:hover {
-  background: var(--color-accent);
+.mctaInner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: #fff;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 20px;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 1.5px;
+  will-change: transform;
+  transition: color 0.25s;
+}
+
+.mcta:hover .mctaInner {
+  color: var(--color-accent);
+}
+
+.mctaArrow {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 @media (max-width: 820px) {

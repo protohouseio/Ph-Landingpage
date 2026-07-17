@@ -34,14 +34,29 @@ export function VideoExpandProvider({ children }: { children: React.ReactNode })
   const spaceRef = useRef<HTMLDivElement>(null);
 
   useGSAP(() => {
+    // vw/vh are cached, NOT read from window.innerWidth/innerHeight
+    // inside sync() itself: sync runs on every ScrollTrigger onUpdate
+    // (i.e. every relevant scroll frame). On mobile browsers the
+    // address bar collapses/expands DURING an active scroll gesture,
+    // continuously changing window.innerHeight mid-scroll — reading it
+    // fresh every tick made this box's start/end/progress shift
+    // frame-to-frame even during one monotonic swipe, which read as
+    // jitter. Cached values only update on an actual resize/refresh,
+    // consistent with the ScrollTrigger.config({ ignoreMobileResize })
+    // set globally in lib/gsap.ts.
+    let vw = window.innerWidth;
+    let vh = window.innerHeight;
+    const measure = () => {
+      vw = window.innerWidth;
+      vh = window.innerHeight;
+    };
+
     const sync = () => {
       const box = boxRef.current;
       const slot = slotRef.current;
       const space = spaceRef.current;
       if (!box || !slot || !space) return;
 
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
       // Document-absolute position — offsetTop would be relative to the
       // positioned hero wrapper, not the page.
       const spTop = space.getBoundingClientRect().top + window.scrollY;
@@ -69,13 +84,17 @@ export function VideoExpandProvider({ children }: { children: React.ReactNode })
       }
     };
 
+    measure();
     sync();
     const st = ScrollTrigger.create({
       trigger: document.documentElement,
       start: 0,
       end: "max",
       onUpdate: sync,
-      onRefresh: sync,
+      onRefresh: () => {
+        measure();
+        sync();
+      },
     });
 
     return () => st.kill();
