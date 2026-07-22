@@ -2,9 +2,10 @@
 
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { MotionPathPlugin } from "gsap/MotionPathPlugin";
 
 if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
+  gsap.registerPlugin(ScrollTrigger, MotionPathPlugin);
   // Mobile browsers fire `resize` when the address bar collapses/expands
   // mid-scroll; by default ScrollTrigger responds with a full refresh,
   // recalculating every pin's start/end and visibly yanking the scroll
@@ -14,4 +15,4 @@ if (typeof window !== "undefined") {
   ScrollTrigger.config({ ignoreMobileResize: true });
 }
 
-export { gsap, ScrollTrigger };
+export { gsap, ScrollTrigger, MotionPathPlugin };

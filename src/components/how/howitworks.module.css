@@ -1,0 +1,398 @@
+/*
+ * Section 4 — "How It Works": pinned isometric climb.
+ *
+ * IMPORTANT: the default (no-class-toggles, no-JS) state authored here is
+ * the FULLY-ACTIVATED poster — every face at full color, connectors
+ * drawn, all step text visible, walker at the summit. GSAP applies the
+ * hidden/"before" states at runtime only when it will actually animate
+ * them (see HowItWorks.tsx), which is what makes the JS-disabled and
+ * prefers-reduced-motion fallbacks free.
+ *
+ * Palette comes in as --hiw-* custom props from design-tokens.ts
+ * (howItWorks), sourced from the site's own --color-accent family (not a
+ * separate one-off red) so this section reads as the same brand as the
+ * rest of the page.
+ */
+
+/* svh, not vh — same rationale as IntroStory/StoryReveal: the pinned
+   scroll span must stay anchored to the stable viewport height so a
+   mobile address-bar collapse can't shift pin math mid-gesture.
+   420svh = 100 (the viewport the pin occupies) + 320 of scrubbed
+   choreography (~ the spec's "+=3200"). */
+.wrap {
+  position: relative;
+  height: 420svh;
+  background: var(--hiw-bg, #efebe3);
+  color: var(--hiw-ink, #141414);
+  font-family: var(--font-copy);
+}
+
+/* Same side padding as StoryReveal's .stage (the section right above
+   this one) — deliberately the exact same clamp(), not an approximation,
+   so the two sections' content spans the same width and the site's
+   left/right rhythm stays symmetric across sections. */
+.stage {
+  position: relative;
+  height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0 clamp(24px, 8vw, 160px);
+}
+
+/* The aspect-locked "poster". Everything inside (both SVGs and the HTML
+   text columns) is positioned in % of this box, and the box's ratio
+   matches the 1280x800 composition space in isoScene.ts — so % here IS
+   poster px there, at any viewport size. WIDTH-driven (fills the padded
+   .stage, same as StoryReveal's content column) rather than height-driven
+   — the previous height-first sizing (min(88svh,57vw)) meant the poster's
+   actual width tracked viewport HEIGHT, so on any wide-but-short desktop
+   window it came out narrower than StoryReveal's own (width-driven)
+   content, breaking the site's side-to-side symmetry. The calc() term
+   is a safety ceiling, not the primary driver: it caps width by what
+   94svh of height allows (via the same 1280/800 ratio), so the poster
+   still can't overflow the pinned viewport vertically on a tall/narrow
+   window. */
+.scene {
+  position: relative;
+  width: 100%;
+  max-width: min(1600px, calc(94svh * 1.6));
+  aspect-ratio: 1280 / 800;
+  will-change: transform;
+}
+
+/* ---- headline -------------------------------------------------------- */
+
+.head {
+  position: absolute;
+  left: 4%;
+  top: 1.5%;
+  width: 36%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 2;
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(24px, 2.6vw, 44px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--hiw-ink);
+}
+
+/* ---- SVG layers ------------------------------------------------------ */
+
+.connectorSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Thin ink hairlines from block geometry out to the text columns.
+   pathLength=1 (set as an attribute) normalizes the dash math, so a
+   dasharray of 1 shows the full line and GSAP's dashoffset 1 -> 0 is the
+   draw-on. Default here = drawn (the activated poster). */
+.connector {
+  fill: none;
+  stroke: rgba(20, 20, 20, 0.35);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+}
+
+/* Cropped blocks+walker artwork, seated inside the poster at the frame
+   computed in isoScene.ts (passed through as --frame-*). */
+.sceneSvg {
+  position: absolute;
+  left: var(--frame-left);
+  top: var(--frame-top);
+  width: var(--frame-width);
+  height: var(--frame-height);
+  pointer-events: none;
+}
+
+.limbGroup {
+  will-change: transform;
+}
+
+.faceTop {
+  fill: var(--hiw-accent-top);
+}
+
+.faceLeft {
+  fill: var(--hiw-accent-side);
+}
+
+.faceRight {
+  fill: var(--hiw-accent-deep);
+}
+
+/* Canvas-colored duplicate of a limb's faces, layered over them INSIDE
+   the limb group: at partial opacity it mutes the limb toward the canvas
+   (the pre-activation state) while the solid stays fully opaque — no
+   see-through geometry. Opacity 0 by default = activated poster. */
+.wash {
+  opacity: 0;
+}
+
+.wash polygon {
+  fill: var(--hiw-bg);
+}
+
+/* Momentary launch-beat overlays — invisible at rest by design (they are
+   effects, not state, so they stay hidden in the no-JS poster too). */
+.flash {
+  fill: #ffffff;
+  opacity: 0;
+}
+
+.ring {
+  fill: none;
+  stroke: var(--hiw-ink);
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+}
+
+.walkPath {
+  fill: none;
+  stroke: none;
+}
+
+.walker {
+  will-change: transform;
+}
+
+.walkerFill {
+  fill: var(--hiw-ink);
+}
+
+/* The figure fuses from flat-ink parts: a filled tapered torso (wide
+   shoulders, narrow hips, neck gap under the head), round-capped limb
+   strokes — legs heavier than arms. At ~52px it reads as a real person
+   in silhouette, like the reference's tiny businessman. */
+.torsoFill {
+  fill: var(--hiw-ink);
+  stroke: var(--hiw-ink);
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+}
+
+.limbStroke {
+  fill: none;
+  stroke: var(--hiw-ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.leg {
+  stroke-width: 4.2;
+}
+
+/* Only one pose layer shows at a time; the standing pose is the CSS
+   default (the no-JS / reduced-motion / mobile resting state), the walk
+   cycle poses are toggled by the gait renderer. */
+.poseHidden {
+  opacity: 0;
+}
+
+/* Hard, dagger-like cast shadow streaming from the walker's feet across
+   the accent top surface — flat fill, hard edge, no blur, clipped to the
+   union of top faces by the parent <g>'s clip-path. */
+.castShadow {
+  fill: var(--hiw-ink);
+  fill-opacity: 0.5;
+}
+
+/* ---- step text columns ----------------------------------------------- */
+
+.steps {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.step {
+  position: absolute;
+  left: var(--step-left);
+  top: var(--step-top);
+  width: var(--step-w);
+  pointer-events: auto;
+}
+
+/* Number stacked above days + title: the side columns are narrow (their
+   width is what the poster composition leaves them), and an inline
+   number+title lockup forced one-word-per-line wraps there. Stacked, the
+   title gets the full column width — and the connector line still meets
+   the column at the numeral's band. */
+.lockup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.numCol {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+/* Clip box for the numeral's slide-up reveal. */
+.numMask {
+  display: block;
+  overflow: hidden;
+}
+
+.num {
+  display: block;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(40px, 4.4vw, 72px);
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+  color: var(--hiw-ink);
+}
+
+/* Accent swipe under the numeral — scaleX 0 -> 1 on activation. */
+.numRule {
+  width: 56px;
+  height: 4px;
+  margin-top: 6px;
+  background: var(--hiw-accent-top);
+}
+
+.titleCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.days {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hiw-accent-top);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: clamp(14px, 1.05vw, 17px);
+  line-height: 1.2;
+  color: var(--hiw-ink);
+}
+
+.body {
+  margin: 8px 0 0;
+  font-size: clamp(12px, 0.82vw, 13.5px);
+  line-height: 1.45;
+  color: var(--hiw-ink-soft);
+}
+
+/* ---- mobile (<768px) AND reduced motion: no pin, vertical flow ------- *
+ *
+ * Both share this same stacked layout, and deliberately so: the desktop
+ * absolute "poster" positions each step column to a fixed spot that GSAP
+ * reveals/recedes over scroll time. Reduced motion runs none of that
+ * JS — everything sits at its CSS default, permanently, all at once —
+ * so reusing the desktop's absolute layout there risks any reused/
+ * overlapping slot colliding into unreadable, interleaved text. A plain
+ * top-to-bottom column has no overlapping slots to begin with. Mobile
+ * already needed this same column for its own reasons (no room for side
+ * columns), so one ruleset covers both.
+ */
+@media (max-width: 767px), (prefers-reduced-motion: reduce) {
+  .wrap {
+    height: auto;
+  }
+
+  .stage {
+    height: auto;
+    overflow: visible;
+    padding: 72px 20px;
+  }
+
+  /* Poster becomes a plain column: heading, artwork, steps.
+     max-width keeps a wide-viewport reduced-motion visit from stretching
+     the artwork edge-to-edge — on an actual mobile viewport this is
+     always the no-op width: 100% already was. */
+  .scene {
+    height: auto;
+    aspect-ratio: auto;
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    will-change: auto;
+  }
+
+  .head {
+    position: static;
+    width: 100%;
+  }
+
+  /* Connectors point at desktop text positions that no longer exist. */
+  .connectorSvg {
+    display: none;
+  }
+
+  .sceneSvg {
+    position: static;
+    width: 100%;
+    height: auto;
+  }
+
+  .steps {
+    position: static;
+    inset: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    pointer-events: auto;
+  }
+
+  .step {
+    position: static;
+    width: auto;
+  }
+
+  .limbGroup,
+  .walker {
+    will-change: auto;
+  }
+}
+
+/* Narrow-viewport-only type scale tweaks (a wide reduced-motion visit
+   keeps the desktop clamp sizes — plenty of room in a 640px column). */
+@media (max-width: 767px) {
+  .heading {
+    font-size: clamp(26px, 7.5vw, 34px);
+  }
+
+  .num {
+    font-size: clamp(52px, 16vw, 72px);
+  }
+
+  .title {
+    font-size: 17px;
+  }
+
+  .body {
+    font-size: 15px;
+  }
+}

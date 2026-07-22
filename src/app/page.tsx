@@ -4,6 +4,7 @@ import { useRef } from "react";
 import IntroStory from "@/components/intro/IntroStory";
 import StoryReveal from "@/components/story/StoryReveal";
 import VslSection from "@/components/vsl/VslSection";
+import HowItWorks from "@/components/how/HowItWorks";
 import Hero from "@/components/hero/Hero";
 import SiteNav, { SiteNavHandle } from "@/components/nav/SiteNav";
 
@@ -21,7 +22,8 @@ export default function Home() {
         />
         <StoryReveal />
         <VslSection />
-        <Hero />
+        <HowItWorks />
+        {/* <Hero /> */}
       </main>
     </>
   );

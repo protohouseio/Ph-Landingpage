@@ -114,33 +114,31 @@ export default function StoryReveal() {
           },
         });
 
-        // Cards sit below the CTA in normal document flow on mobile (see
-        // .stage's height:auto override in storyreveal.module.css). No
+        // Cards sit right below the heading block in normal document flow
+        // on mobile (see .stage's height:auto override in
+        // storyreveal.module.css) — nothing else sits between them. No
         // pin here — mobile pinning is what caused the earlier "shaky
-        // scroll" pain (see the svh notes below) — but each card still
-        // gets the same rise-from-the-bottom-of-the-screen treatment:
-        // it starts a good way below the viewport's bottom edge and
-        // scrubs up into its slot. Because the cards are stacked in
-        // flow, their triggers fire one after another, so the reveal
-        // stays effectively sequential.
+        // scroll" pain (see the svh notes below). Each card gets a short
+        // fade-up as it approaches, matching the stage's own reveal just
+        // above — NOT the desktop's long scroll-linked travel (rising
+        // from 0.6 of the viewport height below its slot): that distance
+        // was tuned for a pinned pass-through and, in normal mobile flow
+        // where cards sit only ~20px apart, it read as a large dead gap
+        // between one card settling and the next even starting to move.
         if (cards.length) {
+          gsap.set(cards, { autoAlpha: 0, y: 28 });
           cards.forEach((el) => {
-            gsap.fromTo(
-              el,
-              { y: () => window.innerHeight * 0.6, scale: 0.96 },
-              {
-                y: 0,
-                scale: 1,
-                ease: "linear",
-                scrollTrigger: {
-                  trigger: el,
-                  start: "top bottom",
-                  end: "top 60%",
-                  scrub: 0.7,
-                  invalidateOnRefresh: true,
-                },
-              }
-            );
+            gsap.to(el, {
+              autoAlpha: 1,
+              y: 0,
+              ease: "power2.out",
+              scrollTrigger: {
+                trigger: el,
+                start: "top 88%",
+                end: "top 65%",
+                scrub: 0.4,
+              },
+            });
           });
         }
         return;

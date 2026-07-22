@@ -96,7 +96,7 @@ export const tokens = {
     nav: [
       { label: "Case Studies", href: "#" },
       { label: "Pricing", href: "#" },
-      { label: "How It Works", href: "#" },
+      { label: "How It Works", href: "#how-it-works" },
       { label: "Contact", href: "#" },
     ],
     navCta: { label: "Start Your MVP", href: "#" },
@@ -182,6 +182,50 @@ export const tokens = {
     bg: "#FAFAF8",
     stripTop: ["Build Fast", "Launch Faster", "Validate For Real", "Own Your Code"],
     stripBottom: ["MVP in 21 Days", "Real Working Software", "No Bloated Roadmaps", "Starting at $4,999"],
+  },
+
+  // "How It Works" — pinned, scroll-scrubbed isometric scene: a small
+  // silhouette walks the low arm of one cross-shaped monolith, steps up
+  // to its junction, then climbs its tower (one limb activates per phase
+  // of the 21-day process; each arrival lights up that limb's step
+  // text). Composition modeled on the "Business Growth" infographic
+  // reference (warm off-white canvas, hairline connectors), but the
+  // monolith's color now IS the site's own accent (color.accent /
+  // accentSoft above) rather than a separate custom red, so this section
+  // reads as the same brand as the rest of the page. accentDeep is the
+  // one addition beyond the three named accent tokens: those three sit
+  // within a ~10pt lightness band (fine for text/UI, too flat for
+  // isometric shading), so a genuinely dark shadow-face tone is derived
+  // from the same hue instead of reusing a light accent variant there.
+  howItWorks: {
+    bg: "#EFEBE3",
+    accentTop: "#FF8A5C", // top faces — = tokens.color.accentSoft
+    accentSide: "#FF5B44", // light (front-left) side faces — = tokens.color.accent
+    accentDeep: "#8C3225", // shadow (front-right) side faces — derived dark shade, same hue
+    ink: "#141414",
+    inkSoft: "#55524C",
+    // eyebrow: "Section 4 — How It Works",
+    heading: "From idea to live product in 21 days.",
+    steps: [
+      {
+        number: "01",
+        days: "Days 1–3",
+        title: "Scope & lock the “one thing.”",
+        body: "On your free scoping call we cut your idea down to the single core feature that proves whether people want it. No bloat, no 40-feature wishlist that eats your runway. You approve the plan before we write a line of code.",
+      },
+      {
+        number: "02",
+        days: "Days 4–17",
+        title: "We build. You watch it come to life.",
+        body: "Our team builds your MVP with a real, scalable stack. You get regular check-ins and a live link to see progress. You don't manage developers, learn to code, or touch anything technical. You just give feedback.",
+      },
+      {
+        number: "03",
+        days: "Days 18–21",
+        title: "Launch, handover & full ownership.",
+        body: "Your MVP goes live. We hand you the entire codebase and repository — 100% yours, no lock-in, no dependency on us.",
+      },
+    ],
   },
 
   media: {
